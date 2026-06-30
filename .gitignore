@@ -35,6 +35,7 @@ TFDU_VFIR_Client_Array/TFDU_VFIR_Client.ip_user_files/
 TFDU_VFIR_Client_Array/TFDU_VFIR_Client.runs/
 TFDU_VFIR_Client_Array/TFDU_VFIR_Client.sim/
 TFDU_VFIR_Client_Array/TFDU_VFIR_Client.tmp/
+TFDU_VFIR_Client_Array/.vmcp/
 TFDU_VFIR_Client_Array/direct_build*/
 IPs/*/*.cache/
 IPs/*/*.gen/
@@ -54,6 +55,7 @@ software/**/Release/
 software/**/.Xil/
 software/**/.metadata/
 software/**/.analytics/
+software/host_client/logs/
 
 # Hardware/programming artifacts generated from source
 *.bit
@@ -70,13 +72,27 @@ software/**/.analytics/
 vivado*.log
 xelab.log
 xvlog.log
+*.log
+*.html
 hs_err_pid*.dmp
 hs_err_pid*.log
 reports/*.out.log
 reports/*.err.log
-software/host_client/logs/*.log
 
 # Packaged/generated deliverables
+reports/
+deliverables/
+shutdown_bitstream/
 *.zip
 *.7z
 *.rar
+
+# Large reference/binary material better kept outside normal Git history
+hardware/
+NA/
+*.pdf
+*.xlsx
+*.xls
+*.stp
+*.dxf
+*.OLB

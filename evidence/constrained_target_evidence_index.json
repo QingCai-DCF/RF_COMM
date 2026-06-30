@@ -1,0 +1,27 @@
+{
+  "generated": "2026-06-28T01:52:46+08:00",
+  "constraint_sha256": "CFF1A17EE77BBAF90080CF4F97E5920E961AEFAE3B6752F080E35FCF4D4B1F11",
+  "constraint_unchanged": true,
+  "target_plan": "C:\\Users\\user\\Downloads\\constrained_2lane_static_plan.md",
+  "target_plan_sha256": "ADD573C2DC57D6DC5761C59574C7FDC0CAE2DA3508EA919C7059FD4D0B00DFC0",
+  "no_hardware_programming": true,
+  "no_uart_write": true,
+  "no_tfdu_drive": true,
+  "generated_files": [
+    "evidence/deferred/N03_ethernet_deferred.md",
+    "evidence/deferred/S05_rotation_deferred.md",
+    "evidence/software_offline/host_mock_test.log",
+    "evidence/software_offline/host_mock_test_summary.md",
+    "evidence/rotation_offline/rotating_model_600rpm.log",
+    "evidence/rotation_offline/rotating_model_summary.md",
+    "evidence/lane_matrix/ackonly_matrix.md",
+    "evidence/bad_dir_debug/BAD_DIR_failure_classification.md",
+    "evidence/bad_dir_debug/BAD_DIR_root_cause_table.md",
+    "evidence/bad_dir_debug/BAD_DIR_param_sweep_summary.md",
+    "evidence/degraded_mode/current_degraded_mode.md",
+    "evidence/software_uart/uart_control_acceptance.md",
+    "evidence/final/constrained_acceptance_matrix.md",
+    "evidence/final/BAD_DIR_fault_report.md",
+    "evidence/final/current_usable_configuration.md"
+  ]
+}

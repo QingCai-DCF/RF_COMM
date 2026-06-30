@@ -1,0 +1,360 @@
+{
+  "meta": {
+    "generated": "2026-06-29T15:36:25",
+    "stage": "P1_2LANE_ILA_BASELINE_CURRENT",
+    "overall": "PASS_READY_FOR_P1_MATRIX",
+    "hardware_action": "none",
+    "uart_action": "none",
+    "tfdu_drive": "none",
+    "vivado_programming": "none",
+    "constraint_sha256": "CFF1A17EE77BBAF90080CF4F97E5920E961AEFAE3B6752F080E35FCF4D4B1F11",
+    "critical_guard_hashes": [
+      "active_bit",
+      "active_boot",
+      "active_ltx",
+      "active_xsa",
+      "constraint",
+      "shutdown_bit"
+    ],
+    "current_plan_scope": "CONSTRAINED_2LANE_STATIC_BASELINE_P0_MANIFEST_FOR_P1_MATRIX"
+  },
+  "artifacts": [
+    {
+      "name": "active_bit",
+      "role": "active FPGA bitstream for P1 2-lane ILA lane mapping",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.runs/impl_1/design_shiboqi_wrapper.bit",
+      "exists": true,
+      "size_bytes": 2083858,
+      "mtime": "2026-06-29T15:35:27",
+      "sha256": "699E4A89DF01A69A38BF52ACF29A52CD91AEE9FEDF4458FE229354D59E0897FE"
+    },
+    {
+      "name": "active_ltx",
+      "role": "active ILA probes for P1 2-lane physical matrix",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.runs/impl_1/design_shiboqi_wrapper.ltx",
+      "exists": true,
+      "size_bytes": 18529,
+      "mtime": "2026-06-29T15:35:44",
+      "sha256": "32805D7AE4FDFB411F74E821A6CCF99702C879E825318548224640062F18913C"
+    },
+    {
+      "name": "active_xsa",
+      "role": "active hardware platform exported from current design",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/design_shiboqi_wrapper.xsa",
+      "exists": true,
+      "size_bytes": 759209,
+      "mtime": "2026-06-29T15:35:49",
+      "sha256": "C8C53B8ADB1B53E4210E6DBBA709DF456B11C0BECE4ECA9DD6028670B42BDD58"
+    },
+    {
+      "name": "active_bit_copy",
+      "role": "top-level convenience copy of active bitstream",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/design_shiboqi_wrapper.bit",
+      "exists": true,
+      "size_bytes": 2083858,
+      "mtime": "2026-06-29T15:35:27",
+      "sha256": "699E4A89DF01A69A38BF52ACF29A52CD91AEE9FEDF4458FE229354D59E0897FE"
+    },
+    {
+      "name": "active_boot",
+      "role": "current BOOT.BIN recorded to avoid stage mix-ups",
+      "required": true,
+      "path": "software/_boot/BOOT.BIN",
+      "exists": true,
+      "size_bytes": 2253584,
+      "mtime": "2026-06-29T15:36:25",
+      "sha256": "87E9BDF6899D65E9859DA8A8EE0A9EDC4F8C3AC5D6994388DD98637351F426F2"
+    },
+    {
+      "name": "ps_loopback_elf",
+      "role": "PS loopback/control ELF used by board-side tests",
+      "required": true,
+      "path": "software/_vitis_ws_ps_ps_loopback/rf_comm_ps_ps_loopback/Debug/rf_comm_ps_ps_loopback.elf",
+      "exists": true,
+      "size_bytes": 355256,
+      "mtime": "2026-06-29T15:36:21",
+      "sha256": "4282F3A1C84EF3194111705278C1A6E755735E2F31520881995DB56401D07749"
+    },
+    {
+      "name": "shutdown_bit",
+      "role": "post-test TFDU shutdown bitstream",
+      "required": true,
+      "path": "shutdown_bitstream/tfdu_shutdown_j10_j11.bit",
+      "exists": true,
+      "size_bytes": 2083853,
+      "mtime": "2026-06-05T00:22:31",
+      "sha256": "F72680DD3EDA852E64F0B844F54D372368FDB3BDEB775B75507623E6DC167765"
+    },
+    {
+      "name": "constraint",
+      "role": "hard project constraint",
+      "required": true,
+      "path": "项目约束(目标）.txt",
+      "exists": true,
+      "size_bytes": 8716,
+      "mtime": "2026-06-03T23:03:42",
+      "sha256": "CFF1A17EE77BBAF90080CF4F97E5920E961AEFAE3B6752F080E35FCF4D4B1F11"
+    },
+    {
+      "name": "project_xpr",
+      "role": "Vivado project file",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.xpr",
+      "exists": true,
+      "size_bytes": 94633,
+      "mtime": "2026-06-29T15:35:25",
+      "sha256": "ECDDE1B776E4197EDB1528091CCA45A68234ECB0B615FC8BC88CE5504B6C42CA"
+    },
+    {
+      "name": "port_xdc",
+      "role": "active TFDU port constraints",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.srcs/constrs_1/new/PORT1.xdc",
+      "exists": true,
+      "size_bytes": 2605,
+      "mtime": "2026-06-26T02:12:24",
+      "sha256": "13B233937908A2DF171AE6DD7D97DFC1FA342C01A76434DCB4EC4EDF1BFAD98C"
+    },
+    {
+      "name": "block_design",
+      "role": "active block design",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.srcs/sources_1/bd/design_shiboqi/design_shiboqi.bd",
+      "exists": true,
+      "size_bytes": 110054,
+      "mtime": "2026-06-29T15:29:35",
+      "sha256": "BABEBA9580B65D9AC4B8FFBEDACCBA72A864C6AA3D3CF1B87243F9F80AD6F73B"
+    },
+    {
+      "name": "ila_xci",
+      "role": "2-lane physical ILA IP configuration",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.srcs/sources_1/bd/design_shiboqi/ip/design_shiboqi_ila_2lane_phy_0/design_shiboqi_ila_2lane_phy_0.xci",
+      "exists": true,
+      "size_bytes": 693093,
+      "mtime": "2026-06-29T15:29:35",
+      "sha256": "73A276A4E45074C9EC0EB894FAF533395A0206A7F3FEE96185C45407F36DB9B5"
+    },
+    {
+      "name": "ir_array_xci",
+      "role": "active IR array IP packet/lane configuration",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.srcs/sources_1/bd/design_shiboqi/ip/design_shiboqi_ir_array_top_axi_0_0/design_shiboqi_ir_array_top_axi_0_0.xci",
+      "exists": true,
+      "size_bytes": 27991,
+      "mtime": "2026-06-29T15:29:35",
+      "sha256": "AD11A4C84235D7C766983D9262B34DD5C3A10F127F503BA585E612CBE636381B"
+    },
+    {
+      "name": "ir_loopback_b0_xci",
+      "role": "active B-side loopback IP packet/lane configuration",
+      "required": true,
+      "path": "TFDU_VFIR_Client_Array/TFDU_VFIR_Client.srcs/sources_1/bd/design_shiboqi/ip/design_shiboqi_ir_loopback_b0_15/design_shiboqi_ir_loopback_b0_15.xci",
+      "exists": true,
+      "size_bytes": 9100,
+      "mtime": "2026-06-29T15:29:03",
+      "sha256": "2A0BC3EAE9F1332A95211DDE80DCF5D92740530599728B6F5C997A54530514EB"
+    },
+    {
+      "name": "ps_makefile",
+      "role": "actual PS loopback ELF compile flags",
+      "required": true,
+      "path": "software/_vitis_ws_ps_ps_loopback/rf_comm_ps_ps_loopback/Debug/src/subdir.mk",
+      "exists": true,
+      "size_bytes": 1503,
+      "mtime": "2026-06-29T15:36:20",
+      "sha256": "9A464A5DF4E79ED6903738906A1A1D2633E037A40DC90015F260B0127188AB0F"
+    },
+    {
+      "name": "ir_hw_header",
+      "role": "shared PS IR hardware packet constants",
+      "required": true,
+      "path": "software/ps_lwip_bridge/src/ir_hw.h",
+      "exists": true,
+      "size_bytes": 8035,
+      "mtime": "2026-06-28T20:00:42",
+      "sha256": "A282AC0129D68FBD35FA84705B60AE6338A41EA3FBCCB3F1F91E368DC00CC388"
+    },
+    {
+      "name": "guard_script",
+      "role": "artifact stage guard used before P1 hardware run",
+      "required": true,
+      "path": "tools/check_active_artifact_stage.py",
+      "exists": true,
+      "size_bytes": 12147,
+      "mtime": "2026-06-27T15:22:06",
+      "sha256": "5ECC7E550BDD795F91DAA6593DE3CC481543CD07A80517C7256E6203FB0264D2"
+    },
+    {
+      "name": "p1_wrapper",
+      "role": "safe P1 lane-mapping wrapper",
+      "required": true,
+      "path": "tools/run_p1_lane_mapping_matrix_safe.ps1",
+      "exists": true,
+      "size_bytes": 13519,
+      "mtime": "2026-06-27T19:24:29",
+      "sha256": "D771E408EDD198B67B425D7FBB7C3A6F9147609A5137AB877C945CFB6B19737C"
+    },
+    {
+      "name": "matrix_wrapper",
+      "role": "safe 2-lane matrix runner",
+      "required": true,
+      "path": "tools/run_2lane_matrix_safe.ps1",
+      "exists": true,
+      "size_bytes": 18827,
+      "mtime": "2026-06-27T19:19:43",
+      "sha256": "B50A833CD470F43A7E94931EC48AEBECBCFA649154F17AF9C221ADC40F44EE22"
+    },
+    {
+      "name": "prearmed_wrapper",
+      "role": "single prearmed ILA capture wrapper",
+      "required": true,
+      "path": "tools/run_2lane_hw_prearmed_ila_safe.ps1",
+      "exists": true,
+      "size_bytes": 25284,
+      "mtime": "2026-06-28T01:19:24",
+      "sha256": "2764FA075B987BDC4009C6A441B5AFBA2EE8486C0C900626DBAA86588756DE8B"
+    },
+    {
+      "name": "add_ila_script",
+      "role": "script that adds the passive 2-lane physical ILA",
+      "required": true,
+      "path": "tools/add_2lane_phy_ila.tcl",
+      "exists": true,
+      "size_bytes": 4621,
+      "mtime": "2026-06-06T02:12:49",
+      "sha256": "D17B8FFC34CF902FA9517A7208B5A6BDDE2070657CB933B1426E4F2C8FD1F1C2"
+    },
+    {
+      "name": "build_script",
+      "role": "script used for the current bitstream rebuild",
+      "required": true,
+      "path": "tools/build_current_bitstream.tcl",
+      "exists": true,
+      "size_bytes": 5486,
+      "mtime": "2026-06-28T19:09:53",
+      "sha256": "2DB3A1484FF6A96D1624CE8BC0860294C322EED25813ADA6039E8264D6E1B935"
+    },
+    {
+      "name": "routed_artifact_script",
+      "role": "read-only routed-artifact extraction helper",
+      "required": true,
+      "path": "tools/write_active_routed_artifacts.tcl",
+      "exists": true,
+      "size_bytes": 3341,
+      "mtime": "2026-06-27T15:09:34",
+      "sha256": "D3F525C4D815D817C7D4E7368B10497780CCD66954C32590350915096B449CF3"
+    },
+    {
+      "name": "shutdown_script",
+      "role": "shutdown programming Tcl script",
+      "required": true,
+      "path": "tools/program_tfdu_shutdown.tcl",
+      "exists": true,
+      "size_bytes": 595,
+      "mtime": "2026-06-06T23:09:43",
+      "sha256": "3C82016D7D37B7A7605E9CDA7CC14FB8332897BCDF475BC5882F98F74C81D444"
+    }
+  ],
+  "source_checks": [
+    {
+      "name": "required_artifacts_exist",
+      "status": "PASS",
+      "detail": "missing="
+    },
+    {
+      "name": "hard_constraint_hash",
+      "status": "PASS",
+      "detail": "constraint_sha256=CFF1A17EE77BBAF90080CF4F97E5920E961AEFAE3B6752F080E35FCF4D4B1F11"
+    },
+    {
+      "name": "active_bit_copy_matches",
+      "status": "PASS",
+      "detail": "active_bit=699E4A89DF01A69A38BF52ACF29A52CD91AEE9FEDF4458FE229354D59E0897FE active_bit_copy=699E4A89DF01A69A38BF52ACF29A52CD91AEE9FEDF4458FE229354D59E0897FE"
+    },
+    {
+      "name": "project_uses_port1_xdc",
+      "status": "PASS",
+      "detail": "Vivado project references PORT1.xdc"
+    },
+    {
+      "name": "port1_expected_pinmap",
+      "status": "PASS",
+      "detail": "all expected TFDU pins match"
+    },
+    {
+      "name": "port1_no_duplicate_package_pins",
+      "status": "PASS",
+      "detail": "duplicates="
+    },
+    {
+      "name": "b_rx1_moved_to_g15",
+      "status": "PASS",
+      "detail": "loop_rx_b0[1]=G15"
+    },
+    {
+      "name": "bd_uses_ir_stream_bidir_vec_bd",
+      "status": "PASS",
+      "detail": "BD contains ir_stream_bidir_vec_bd"
+    },
+    {
+      "name": "bd_lane_count_2",
+      "status": "PASS",
+      "detail": "BD contains LANE_COUNT value 2"
+    },
+    {
+      "name": "bd_contains_ila_2lane_phy",
+      "status": "PASS",
+      "detail": "BD contains passive 2-lane physical ILA"
+    },
+    {
+      "name": "ila_xci_probe_count_9",
+      "status": "PASS",
+      "detail": "C_NUM_OF_PROBES=9"
+    },
+    {
+      "name": "ila_xci_depth_16384",
+      "status": "PASS",
+      "detail": "C_DATA_DEPTH=16384"
+    },
+    {
+      "name": "ila_xci_probe8_width_32",
+      "status": "PASS",
+      "detail": "C_PROBE8_WIDTH=32"
+    },
+    {
+      "name": "ltx_contains_2lane_phy_ila",
+      "status": "PASS",
+      "detail": "LTX contains design_shiboqi_i/ila_2lane_phy with probes 0..8"
+    },
+    {
+      "name": "pl_2lane_packet_config",
+      "status": "PASS",
+      "detail": "LANE_COUNT=2 MAX_PACKET_BYTES=255 FRAGMENT_BYTES=255 allowed_max_packet=255_or_264"
+    },
+    {
+      "name": "loopback_b0_packet_config_matches",
+      "status": "PASS",
+      "detail": "LANE_COUNT=2 RAW_PACKET_BYTES=255 FRAGMENT_BYTES=255"
+    },
+    {
+      "name": "ps_compile_packet_defines_present",
+      "status": "PASS",
+      "detail": "PSPS_PAYLOAD_BYTES=247 IR_HW_MAX_PACKET_BYTES=255 IR_HW_RX_TRANSFER_BYTES=255 IR_HW_APP_HEADER_BYTES=8"
+    },
+    {
+      "name": "ps_raw_payload_fits_pl_packet",
+      "status": "PASS",
+      "detail": "raw_payload=PSPS_PAYLOAD_BYTES+IR_HW_APP_HEADER_BYTES=255 PL_MAX_PACKET_BYTES=255"
+    },
+    {
+      "name": "ps_packet_buffers_fit_pl_packet",
+      "status": "PASS",
+      "detail": "IR_HW_MAX_PACKET_BYTES=255 IR_HW_RX_TRANSFER_BYTES=255 PL_MAX_PACKET_BYTES=255"
+    }
+  ]
+}
