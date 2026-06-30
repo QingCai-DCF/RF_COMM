@@ -11,6 +11,7 @@ param(
     [int]$SustainedSeconds = 60,
     [int]$LongSeconds = 300,
     [switch]$SkipUartProbe,
+    [switch]$SkipStaticDirectPreflight,
     [switch]$DryRun
 )
 
@@ -32,10 +33,11 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $expectedConstraintSha256 = "CFF1A17EE77BBAF90080CF4F97E5920E961AEFAE3B6752F080E35FCF4D4B1F11"
 $acceptanceScript = Join-Path $repoRoot "software\host_client\run_acceptance.ps1"
 $uartProbeScript = Join-Path $repoRoot "tools\probe_ps_uart_boot_safe.ps1"
+$staticDirectPreflightScript = Join-Path $repoRoot "tools\setup_n03_static_direct_network_safe.ps1"
 $maxContinuousRunSeconds = 600
 $framePayloadBytes = 512
 
-foreach ($path in @($acceptanceScript, $uartProbeScript)) {
+foreach ($path in @($acceptanceScript, $uartProbeScript, $staticDirectPreflightScript)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required file is missing: $path"
     }
@@ -44,7 +46,7 @@ foreach ($path in @($acceptanceScript, $uartProbeScript)) {
 function Write-SummaryLine {
     param([string]$Line)
     Write-Host $Line
-    Add-Content -LiteralPath $summaryLog -Value $Line -Encoding ascii
+    Add-Content -LiteralPath $summaryLog -Value $Line -Encoding utf8
 }
 
 function Add-MatrixRow {
@@ -164,6 +166,20 @@ function Step-Status {
     return "FAIL"
 }
 
+function Get-MarkerValues {
+    param(
+        [string]$Text,
+        [string]$Key
+    )
+    $values = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in ($Text -split "`r?`n")) {
+        if ($line.StartsWith("$Key=")) {
+            $values.Add($line.Substring($Key.Length + 1).Trim())
+        }
+    }
+    return @($values)
+}
+
 function Invoke-PayloadCase {
     param(
         [string]$Mode,
@@ -215,7 +231,7 @@ function Invoke-DurationCase {
     return Invoke-Acceptance -Name $name -Arguments $args -TimeoutSecondsForStep $timeout
 }
 
-"N03_NETWORK_FIRST_ACCEPTANCE_SAFE_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding ascii
+"N03_NETWORK_FIRST_ACCEPTANCE_SAFE_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding utf8
 "item,status,evidence,note" | Out-File -LiteralPath $matrixCsv -Encoding UTF8
 Write-SummaryLine "REPO_ROOT=$repoRoot"
 Write-SummaryLine "TARGET_HOST=$TargetHost"
@@ -228,6 +244,7 @@ Write-SummaryLine "MATRIX_REPEAT=$MatrixRepeat"
 Write-SummaryLine "QUICK_REPEAT=$QuickRepeat"
 Write-SummaryLine "SUSTAINED_SECONDS=$SustainedSeconds"
 Write-SummaryLine "LONG_SECONDS=$LongSeconds"
+Write-SummaryLine "SKIP_STATIC_DIRECT_PREFLIGHT=$([int]$SkipStaticDirectPreflight.IsPresent)"
 Write-SummaryLine "DRY_RUN=$([int]$DryRun.IsPresent)"
 Write-SummaryLine "NO_FPGA_PROGRAMMING_DONE_BY_THIS_SCRIPT=1"
 Write-SummaryLine "NO_UART_WRITE_UNLESS_READONLY_PROBE=1"
@@ -254,6 +271,67 @@ if ($constraintHash -ne $expectedConstraintSha256) {
     Write-SummaryLine "N03_BLOCKED_REASON=project_constraint_hash_mismatch"
     Write-SummaryLine "N03_NETWORK_FIRST_ACCEPTANCE_SAFE_END $(Get-Date -Format o)"
     exit 2
+}
+
+if (-not $SkipStaticDirectPreflight) {
+    $staticLog = Join-Path $logDir "static_direct_preflight.out.log"
+    $staticErr = Join-Path $logDir "static_direct_preflight.err.log"
+    $staticResult = Invoke-LoggedProcess -Name "static_direct_preflight_readonly" -FilePath "powershell.exe" -Arguments @(
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        $staticDirectPreflightScript,
+        "-TargetHost",
+        $TargetHost,
+        "-Port",
+        [string]$Port,
+        "-TimeoutMs",
+        [string]([Math]::Max(1000, [int]([Math]::Max($TimeoutSeconds, 1.0) * 1000.0)))
+    ) -LogPath $staticLog -ErrPath $staticErr -TimeoutSecondsForStep ([int]([Math]::Max($TimeoutSeconds, 1.0) + 20))
+    $staticCombined = $staticResult.Stdout + "`n" + $staticResult.Stderr
+    foreach ($line in ($staticCombined -split "`r?`n" | Where-Object { $_ -match "PC_|TCP_|N03_STATIC_DIRECT|RECOMMENDED_|APPLY_|FIREWALL_|SELECTED_ADAPTER" } | Select-Object -Last 80)) {
+        Write-SummaryLine "STATIC_PREFLIGHT_MATCH $line"
+    }
+    $staticBlockers = @(Get-MarkerValues -Text $staticCombined -Key "N03_STATIC_DIRECT_NETWORK_BLOCKER")
+    $staticPassMarkers = @(Get-MarkerValues -Text $staticCombined -Key "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_PASS")
+    $staticStatus = if ($staticPassMarkers -contains "1") {
+        "PASS"
+    } elseif ($staticBlockers.Count -gt 0) {
+        "BLOCKED"
+    } else {
+        Step-Status $staticResult
+    }
+    Add-MatrixRow -Item "N03-1_pc_static_direct_preflight" -Status $staticStatus -Evidence $staticLog -Note "Read-only PC Ethernet static direct preflight."
+    $recommendedApply = (Get-MarkerValues -Text $staticCombined -Key "RECOMMENDED_APPLY_COMMAND" | Select-Object -First 1)
+    $recommendedFirewall = (Get-MarkerValues -Text $staticCombined -Key "RECOMMENDED_FIREWALL_COMMAND" | Select-Object -First 1)
+    if ($recommendedApply) { Write-SummaryLine "N03_RECOMMENDED_STATIC_IP_COMMAND=$recommendedApply" }
+    if ($recommendedFirewall) { Write-SummaryLine "N03_RECOMMENDED_FIREWALL_COMMAND=$recommendedFirewall" }
+    if ($staticBlockers -contains "pc_missing_expected_static_ip") {
+        Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=0"
+        Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1"
+        Write-SummaryLine "N03_BLOCKED_REASON=pc_missing_expected_static_ip"
+        Write-SummaryLine "N03_NETWORK_FIRST_ACCEPTANCE_SAFE_END $(Get-Date -Format o)"
+        $md = @(
+            "# N03 Network-first Real Acceptance",
+            "",
+            "Generated: $(Get-Date -Format o)",
+            "",
+            "Verdict: BLOCKED",
+            "",
+            "PC Ethernet is not configured for the N03 static-direct subnet, so no TCP payload, no PS/PL synthetic injection, no FPGA programming, and no TFDU drive were executed.",
+            "",
+            "- Required PC IP: 192.168.10.1/24",
+            "- Target: ${TargetHost}:$Port",
+            "- Recommended static IP command: $recommendedApply",
+            "- Recommended firewall command: $recommendedFirewall",
+            "- Summary log: $summaryLog",
+            "- Matrix CSV: $matrixCsv",
+            "- Log dir: $logDir"
+        )
+        [System.IO.File]::WriteAllLines($mdReport, [string[]]$md, [System.Text.Encoding]::UTF8)
+        exit 20
+    }
 }
 
 if (-not $SkipUartProbe) {

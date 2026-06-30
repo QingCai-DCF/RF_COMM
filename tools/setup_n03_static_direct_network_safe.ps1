@@ -147,6 +147,10 @@ foreach ($ip in $existingIps) {
     }
 }
 Write-SummaryLine "PC_EXPECTED_STATIC_IP_PRESENT=$([int]$expectedIpPresent)"
+if (-not $expectedIpPresent) {
+    Write-SummaryLine "RECOMMENDED_APPLY_COMMAND=New-NetIPAddress -InterfaceAlias `"$($selected.Name)`" -IPAddress $ExpectedPcIp -PrefixLength $PrefixLength -SkipAsSource `$false"
+}
+Write-SummaryLine "RECOMMENDED_FIREWALL_COMMAND=New-NetFirewallRule -DisplayName RF_COMM_TCP_5001_N03 -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow"
 
 $applyAttempted = $false
 $applySucceeded = $false
