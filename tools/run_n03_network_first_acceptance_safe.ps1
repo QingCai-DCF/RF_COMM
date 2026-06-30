@@ -306,9 +306,11 @@ if (-not $SkipStaticDirectPreflight) {
     $recommendedApply = (Get-MarkerValues -Text $staticCombined -Key "RECOMMENDED_APPLY_COMMAND" | Select-Object -First 1)
     $recommendedFirewall = (Get-MarkerValues -Text $staticCombined -Key "RECOMMENDED_FIREWALL_COMMAND" | Select-Object -First 1)
     $elevatedApply = (Get-MarkerValues -Text $staticCombined -Key "ELEVATED_APPLY_COMMAND" | Select-Object -First 1)
+    $elevatedUac = (Get-MarkerValues -Text $staticCombined -Key "ELEVATED_UAC_COMMAND" | Select-Object -First 1)
     if ($recommendedApply) { Write-SummaryLine "N03_RECOMMENDED_STATIC_IP_COMMAND=$recommendedApply" }
     if ($recommendedFirewall) { Write-SummaryLine "N03_RECOMMENDED_FIREWALL_COMMAND=$recommendedFirewall" }
     if ($elevatedApply) { Write-SummaryLine "N03_ELEVATED_STATIC_DIRECT_SETUP_COMMAND=$elevatedApply" }
+    if ($elevatedUac) { Write-SummaryLine "N03_ELEVATED_STATIC_DIRECT_UAC_COMMAND=$elevatedUac" }
     if ($staticBlockers -contains "pc_missing_expected_static_ip") {
         Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=0"
         Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1"
@@ -328,6 +330,7 @@ if (-not $SkipStaticDirectPreflight) {
             "- Recommended static IP command: $recommendedApply",
             "- Recommended firewall command: $recommendedFirewall",
             "- Elevated setup command: $elevatedApply",
+            "- Elevated UAC command: $elevatedUac",
             "- Summary log: $summaryLog",
             "- Matrix CSV: $matrixCsv",
             "- Log dir: $logDir"

@@ -228,6 +228,7 @@ def main() -> int:
         static_net_text, "RECOMMENDED_FIREWALL_COMMAND"
     )
     elevated_apply_command = marker_value(static_net_text, "ELEVATED_APPLY_COMMAND")
+    elevated_uac_command = marker_value(static_net_text, "ELEVATED_UAC_COMMAND")
     is_admin = marker_value(static_net_text, "IS_ADMIN")
     admin_required = marker_value(static_net_text, "ADMIN_REQUIRED_TO_APPLY")
     uart_verdict = marker_value(uart_text, "UART_PROBE_VERDICT")
@@ -384,13 +385,13 @@ def main() -> int:
         report_template(
             "N03-1 Static IP Direct Smoke",
             rows[1].status,
-            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Current shell admin={is_admin or 'unknown'}. Recommended static IP command: `{static_apply_command or 'not captured'}`. Elevated setup command: `{elevated_apply_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
+            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Current shell admin={is_admin or 'unknown'}. Recommended static IP command: `{static_apply_command or 'not captured'}`. Elevated setup command: `{elevated_apply_command or 'not captured'}`. UAC launch command: `{elevated_uac_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
             rows,
         ),
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nelevated_uac_command={elevated_uac_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",

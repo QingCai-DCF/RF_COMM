@@ -1,13 +1,14 @@
-generated=2026-07-01T00:07:28
+generated=2026-07-01T00:11:39
 status=BLOCKED_PC_STATIC_IP_NOT_CONFIGURED
 target=192.168.10.2:5001
 current_preflight=PC Ethernet lacks 192.168.10.1/24 static direct IP
 static_direct_preflight_summary=reports/n03_static_direct_network_preflight_current.summary.txt
-safe_wrapper_summary=reports/n03_network_first_acceptance_safe_20260701_000720.summary.txt
+safe_wrapper_summary=reports/n03_network_first_acceptance_safe_20260701_001129.summary.txt
 pc_expected_static_ip_present=0
 is_admin=0
 admin_required_to_apply=1
 recommended_apply_command=New-NetIPAddress -InterfaceAlias "以太网" -IPAddress 192.168.10.1 -PrefixLength 24 -SkipAsSource $false
 recommended_firewall_command=New-NetFirewallRule -DisplayName RF_COMM_TCP_5001_N03 -Direction Inbound -Protocol TCP -LocalPort 5001 -Action Allow
 elevated_apply_command=powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\Documents\RF_COMM\tools\setup_n03_static_direct_network_safe.ps1 -InterfaceAlias 以太网 -ExpectedPcIp 192.168.10.1 -PrefixLength 24 -TargetHost 192.168.10.2 -Port 5001 -TimeoutMs 1000 -Apply -AddFirewallRule
+elevated_uac_command=Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\Users\user\Documents\RF_COMM\tools\setup_n03_static_direct_network_safe.ps1 -InterfaceAlias 以太网 -ExpectedPcIp 192.168.10.1 -PrefixLength 24 -TargetHost 192.168.10.2 -Port 5001 -TimeoutMs 1000 -Apply -AddFirewallRule' -Verb RunAs -Wait
 real_tcp_connect_pass=0

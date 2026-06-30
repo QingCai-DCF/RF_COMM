@@ -8,6 +8,7 @@ param(
     [int]$TimeoutMs = 1000,
     [switch]$Apply,
     [switch]$AddFirewallRule,
+    [switch]$LaunchElevatedApply,
     [switch]$DryRun
 )
 
@@ -108,6 +109,7 @@ Write-SummaryLine "PORT=$Port"
 Write-SummaryLine "TIMEOUT_MS=$TimeoutMs"
 Write-SummaryLine "APPLY=$([int]$Apply.IsPresent)"
 Write-SummaryLine "ADD_FIREWALL_RULE=$([int]$AddFirewallRule.IsPresent)"
+Write-SummaryLine "LAUNCH_ELEVATED_APPLY=$([int]$LaunchElevatedApply.IsPresent)"
 Write-SummaryLine "DRY_RUN=$([int]$DryRun.IsPresent)"
 Write-SummaryLine "NO_FPGA_PROGRAMMING=1"
 Write-SummaryLine "NO_UART_WRITE=1"
@@ -187,14 +189,40 @@ $elevatedApplyArgs = @(
     "-Apply",
     "-AddFirewallRule"
 )
-$elevatedApplyCommand = "powershell.exe " + (($elevatedApplyArgs | ForEach-Object { Quote-CommandArg $_ }) -join " ")
+$elevatedApplyArgLine = (($elevatedApplyArgs | ForEach-Object { Quote-CommandArg $_ }) -join " ")
+$elevatedApplyCommand = "powershell.exe $elevatedApplyArgLine"
+$escapedElevatedApplyArgLine = $elevatedApplyArgLine -replace "'", "''"
+$elevatedUacCommand = "Start-Process -FilePath powershell.exe -ArgumentList '$escapedElevatedApplyArgLine' -Verb RunAs -Wait"
 Write-SummaryLine "ELEVATED_APPLY_COMMAND=$elevatedApplyCommand"
+Write-SummaryLine "ELEVATED_UAC_COMMAND=$elevatedUacCommand"
 Write-SummaryLine "ELEVATED_APPLY_COMMAND_NOTE=run_from_administrator_powershell"
 if (-not $isAdmin -and -not $expectedIpPresent) {
     Write-SummaryLine "ADMIN_REQUIRED_TO_APPLY=1"
-    Write-SummaryLine "N03_STATIC_DIRECT_NETWORK_NEXT_ACTION=run_elevated_apply_command"
+    Write-SummaryLine "N03_STATIC_DIRECT_NETWORK_NEXT_ACTION=run_elevated_uac_command"
 } else {
     Write-SummaryLine "ADMIN_REQUIRED_TO_APPLY=0"
+}
+
+if ($LaunchElevatedApply -and -not $expectedIpPresent) {
+    if ($DryRun) {
+        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_DRY_RUN_COMMAND=$elevatedUacCommand"
+    } elseif ($isAdmin) {
+        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_ALREADY_ADMIN_APPLY_INLINE=1"
+        $Apply = [System.Management.Automation.SwitchParameter]::Present
+        $AddFirewallRule = [System.Management.Automation.SwitchParameter]::Present
+    } else {
+        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_START=1"
+        Start-Process -FilePath "powershell.exe" -ArgumentList $elevatedApplyArgs -WorkingDirectory $repoRoot -Verb RunAs -Wait
+        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_DONE=1"
+        $existingIps = @(Get-NetIPAddress -InterfaceIndex $selected.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue)
+        $expectedIpPresent = $false
+        foreach ($ip in $existingIps) {
+            if ($ip.IPAddress -eq $ExpectedPcIp -and [int]$ip.PrefixLength -eq $PrefixLength) {
+                $expectedIpPresent = $true
+            }
+        }
+        Write-SummaryLine "PC_EXPECTED_STATIC_IP_PRESENT_AFTER_ELEVATED_LAUNCH=$([int]$expectedIpPresent)"
+    }
 }
 
 $applyAttempted = $false
@@ -298,6 +326,7 @@ $payload = [ordered]@{
         no_tcp_payload = $true
     }
     elevated_apply_command = $elevatedApplyCommand
+    elevated_uac_command = $elevatedUacCommand
 }
 $payload | ConvertTo-Json -Depth 6 | Out-File -LiteralPath $jsonReport -Encoding utf8
 
@@ -319,6 +348,7 @@ $md = @(
     "- TCP quick connect: $tcpQuick",
     "- Blockers: $(if ($blockers.Count) { $blockers -join ', ' } else { 'none' })",
     "- Elevated apply command: $elevatedApplyCommand",
+    "- Elevated UAC command: $elevatedUacCommand",
     "- Summary log: $summaryLog",
     "- JSON report: $jsonReport"
 )
