@@ -708,7 +708,7 @@ def interactive(client: RFClient, stats: Stats) -> None:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="192.168.1.10")
+    parser.add_argument("--host", default="192.168.10.2")
     parser.add_argument("--port", type=int, default=5001)
     parser.add_argument("--retry", action="store_true", help="reconnect until the PS bridge is available")
     parser.add_argument("--timeout", type=float, default=5.0)

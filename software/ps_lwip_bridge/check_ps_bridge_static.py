@@ -251,9 +251,9 @@ def main() -> int:
         )
         require_re(checks, "dhcp_timeout_static_fallback", main_flat, r"if \(server_netif\.ip_addr\.addr == 0u\) \{ .* set_static_fallback\(&server_netif\); \}")
         require_re(checks, "no_dhcp_static_fallback", main_c, r"#else\s+set_static_fallback\s*\(\s*&server_netif\s*\)")
-        require_re(checks, "static_ip_address", main_flat, r"IP4_ADDR\(&\(netif->ip_addr\), 192, 168, 1, 10\)")
+        require_re(checks, "static_ip_address", main_flat, r"IP4_ADDR\(&\(netif->ip_addr\), 192, 168, 10, 2\)")
         require_re(checks, "static_netmask", main_flat, r"IP4_ADDR\(&\(netif->netmask\), 255, 255, 255, 0\)")
-        require_re(checks, "static_gateway", main_flat, r"IP4_ADDR\(&\(netif->gw\), 192, 168, 1, 1\)")
+        require_re(checks, "static_gateway", main_flat, r"IP4_ADDR\(&\(netif->gw\), 192, 168, 10, 1\)")
         require_re(checks, "network_poll_loop", main_flat, r"while \(1\) \{ .* tcp_fasttmr\(\); .* tcp_slowtmr\(\); .* xemacif_input\(&server_netif\); tcp_bridge_poll\(\); \}")
 
         require_re(checks, "tcp_new_bind_listen", bridge_flat, r"tcp_new\(\).*tcp_bind\(pcb, IP_ADDR_ANY, port\).*tcp_listen\(pcb\).*tcp_accept\(g_bridge\.listen_pcb, bridge_accept\)")

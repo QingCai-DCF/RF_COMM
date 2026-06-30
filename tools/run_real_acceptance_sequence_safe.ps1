@@ -2,9 +2,9 @@
 param(
     [ValidateSet("preflight", "n03", "n04", "product_loop", "rotating_shaft", "eight_lane", "all")]
     [string]$Stage = "preflight",
-    [string]$TargetHost = "192.168.1.10",
-    [string]$TargetHostA = "192.168.1.10",
-    [string]$TargetHostB = "192.168.1.11",
+    [string]$TargetHost = "192.168.10.2",
+    [string]$TargetHostA = "192.168.10.2",
+    [string]$TargetHostB = "192.168.10.3",
     [int]$Port = 5001,
     [int]$PortA = 5001,
     [int]$PortB = 5001,

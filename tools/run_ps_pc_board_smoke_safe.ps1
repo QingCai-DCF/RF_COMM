@@ -66,7 +66,7 @@ if ($latestProbe) {
 }
 
 if ($TargetHost -eq "" -and $UseStaticFallback) {
-    $TargetHost = "192.168.1.10"
+    $TargetHost = "192.168.10.2"
     Write-SummaryLine "TARGET_HOST_STATIC_FALLBACK=$TargetHost"
 }
 

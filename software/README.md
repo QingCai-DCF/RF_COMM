@@ -157,23 +157,24 @@ The UART output reports `PSPS_STATS` once per second while alternating
 4. Run PC-side TCP smoke checks:
 
    ```powershell
-   python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --hello --status --require-clean
-   python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --config-session 0x1234 --config-lane-mask 0x1 --config-enable 1 --status --require-clean
-   python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --config-tx-lane-mask 0x3 --config-rx-lane-mask 0xc --status
-   python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --repeat 1000 --payload-size 32 --window 1 --ack-timeout 3 --status-interval 1 --require-clean
-   python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --reconnect-cycles 20
+   python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --hello --status --require-clean
+   python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-session 0x1234 --config-lane-mask 0x1 --config-enable 0 --config-mode network_memory_echo --status --require-clean
+   python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-mode pspl_synth_loopback --status --require-clean
+   python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --repeat 1000 --payload-size 32 --window 1 --ack-timeout 3 --status-interval 1 --require-clean
+   python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --reconnect-cycles 20
    ```
 
-Use the DHCP address printed on UART instead of `192.168.1.10` when DHCP
+Use the DHCP address printed on UART instead of `192.168.10.2` when DHCP
 succeeds.
 
 The same checks can be run through the acceptance wrapper:
 
 ```powershell
-.\software\host_client\run_acceptance.ps1 -Mode smoke -TargetHost 192.168.1.10
-.\software\host_client\run_acceptance.ps1 -Mode single_lane -TargetHost 192.168.1.10
-.\software\host_client\run_acceptance.ps1 -Mode reconnect -TargetHost 192.168.1.10
-.\software\host_client\run_acceptance.ps1 -Mode soak_2h -TargetHost 192.168.1.10
+.\software\host_client\run_acceptance.ps1 -Mode smoke -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_memory_echo -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_pspl_synth -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_negative -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode reconnect -TargetHost 192.168.10.2
 ```
 
 Use `-DryRun` to print the exact commands without connecting to the board.

@@ -44,9 +44,9 @@ static void print_ip_settings(const ip_addr_t *ip,
 
 static void set_static_fallback(struct netif *netif)
 {
-	IP4_ADDR(&(netif->ip_addr), 192, 168, 1, 10);
+	IP4_ADDR(&(netif->ip_addr), 192, 168, 10, 2);
 	IP4_ADDR(&(netif->netmask), 255, 255, 255, 0);
-	IP4_ADDR(&(netif->gw), 192, 168, 1, 1);
+	IP4_ADDR(&(netif->gw), 192, 168, 10, 1);
 }
 
 int main(void)

@@ -1,9 +1,9 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("smoke", "single_lane", "soak_2h", "reconnect", "fdx_partition", "offline_mock")]
+    [ValidateSet("smoke", "single_lane", "soak_2h", "reconnect", "fdx_partition", "offline_mock", "n03_memory_echo", "n03_pspl_synth", "n03_negative")]
     [string]$Mode = "smoke",
 
-    [string]$TargetHost = "192.168.1.10",
+    [string]$TargetHost = "192.168.10.2",
     [int]$Port = 5001,
     [double]$TimeoutSeconds = 5.0,
 
@@ -15,6 +15,8 @@ param(
     [int]$DurationSeconds = 0,
     [int]$Repeat = 1000,
     [int]$PayloadSize = 248,
+    [ValidateSet("incremental", "synth_ramp", "zero", "ff")]
+    [string]$PayloadPattern = "incremental",
     [double]$IntervalSeconds = 0.0,
     [double]$StatusIntervalSeconds = 1.0,
     [int]$Window = 1,
@@ -229,7 +231,8 @@ function Traffic-Args {
     param(
         [string]$Name,
         [int]$DefaultDurationSeconds,
-        [int]$DefaultWindow
+        [int]$DefaultWindow,
+        [string]$PayloadPatternOverride = ""
     )
 
     $argsOut = Base-Args
@@ -255,8 +258,14 @@ function Traffic-Args {
         $effectiveWindow = $DefaultWindow
     }
 
+    $effectivePayloadPattern = $PayloadPattern
+    if ($PayloadPatternOverride -ne "") {
+        $effectivePayloadPattern = $PayloadPatternOverride
+    }
+
     $argsOut += @(
         "--payload-size", [string]$PayloadSize,
+        "--payload-pattern", $effectivePayloadPattern,
         "--interval", [string]$IntervalSeconds,
         "--status-interval", [string]$StatusIntervalSeconds,
         "--window", [string]$effectiveWindow,
@@ -274,10 +283,11 @@ function Invoke-Traffic {
     param(
         [string]$Name,
         [int]$DefaultDurationSeconds,
-        [int]$DefaultWindow
+        [int]$DefaultWindow,
+        [string]$PayloadPatternOverride = ""
     )
 
-    $trafficArgs = Traffic-Args -Name $Name -DefaultDurationSeconds $DefaultDurationSeconds -DefaultWindow $DefaultWindow
+    $trafficArgs = Traffic-Args -Name $Name -DefaultDurationSeconds $DefaultDurationSeconds -DefaultWindow $DefaultWindow -PayloadPatternOverride $PayloadPatternOverride
     Invoke-RFClient $trafficArgs
 
     $csvLog = Get-ArgValue -ArgsIn $trafficArgs -Name "--csv-log"
@@ -287,6 +297,59 @@ function Invoke-Traffic {
         $minDuration = [double]$durationArg
     }
     Invoke-LogAnalysis -CsvLog $csvLog -MinDurationSeconds $minDuration
+}
+
+function Invoke-N03ModeConfig {
+    param([string]$BridgeMode)
+
+    Invoke-RFClient ((Base-Args) + @(
+        "--clear",
+        "--config-session", $SessionId,
+        "--config-lane-mask", $LaneMask,
+        "--config-enable", "0",
+        "--config-mode", $BridgeMode,
+        "--status"
+    ) + (Clean-Args))
+}
+
+function Invoke-N03MemoryEcho {
+    if (-not $providedParams.ContainsKey("Repeat")) {
+        $script:Repeat = 32
+    }
+    if (-not $providedParams.ContainsKey("PayloadSize")) {
+        $script:PayloadSize = 64
+    }
+    if (-not $providedParams.ContainsKey("MinRxFrames")) {
+        $script:MinRxFrames = $Repeat
+    }
+
+    Invoke-N03ModeConfig -BridgeMode "network_memory_echo"
+    Invoke-Traffic -Name "n03_memory_echo" -DefaultDurationSeconds 0 -DefaultWindow 1 -PayloadPatternOverride $PayloadPattern
+    Write-Host "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1"
+}
+
+function Invoke-N03PsplSynth {
+    if (-not $providedParams.ContainsKey("Repeat")) {
+        $script:Repeat = 32
+    }
+    if (-not $providedParams.ContainsKey("PayloadSize")) {
+        $script:PayloadSize = 64
+    }
+    if (-not $providedParams.ContainsKey("MinRxFrames")) {
+        $script:MinRxFrames = $Repeat
+    }
+
+    Invoke-N03ModeConfig -BridgeMode "pspl_synth_loopback"
+    Invoke-Traffic -Name "n03_pspl_synth" -DefaultDurationSeconds 0 -DefaultWindow 1 -PayloadPatternOverride "synth_ramp"
+    Write-Host "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1"
+}
+
+function Invoke-N03Negative {
+    Invoke-RFClient ((Base-Args) + @(
+        "--config-mode", "ir_physical",
+        "--expect-error", "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE"
+    ))
+    Write-Host "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1"
 }
 
 Write-Host "RF_COMM acceptance mode: $Mode"
@@ -336,6 +399,15 @@ switch ($Mode) {
         ) + (Clean-Args))
         Invoke-Traffic -Name "fdx_partition" -DefaultDurationSeconds 600 -DefaultWindow 4
     }
+    "n03_memory_echo" {
+        Invoke-N03MemoryEcho
+    }
+    "n03_pspl_synth" {
+        Invoke-N03PsplSynth
+    }
+    "n03_negative" {
+        Invoke-N03Negative
+    }
     "offline_mock" {
         if (-not $providedParams.ContainsKey("Repeat")) {
             $Repeat = 32
@@ -361,6 +433,9 @@ switch ($Mode) {
                 "--status"
             ) + (Clean-Args))
             Invoke-Traffic -Name "offline_mock_single_lane" -DefaultDurationSeconds 0 -DefaultWindow 1
+            Invoke-N03MemoryEcho
+            Invoke-N03PsplSynth
+            Invoke-N03Negative
             Invoke-RFClient ((Base-Args) + @(
                 "--reconnect-cycles", [string]$ReconnectCycles,
                 "--reconnect-delay", "0.1"

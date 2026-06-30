@@ -89,6 +89,7 @@ Write-SummaryLine "REPEAT=$Repeat"
 Write-SummaryLine "PAYLOAD_SIZE=$PayloadSize"
 Write-SummaryLine "RECONNECT_CYCLES=$ReconnectCycles"
 Write-SummaryLine "TIMEOUT_SECONDS=$TimeoutSeconds"
+Write-SummaryLine "N03_OFFLINE_MODES=memory_echo;pspl_synth;ir_physical_deferred_negative"
 
 $overall = 0
 
@@ -129,7 +130,7 @@ if (Test-Path -LiteralPath $acceptanceDir) {
 }
 
 if ($overall -eq 0) {
-    Write-SummaryLine "PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1"
+    Write-SummaryLine "PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 n03_modes=1"
 } else {
     Write-SummaryLine "PS_PC_OFFLINE_GATES_FAIL exit=$overall"
 }

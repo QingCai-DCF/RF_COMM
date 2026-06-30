@@ -147,9 +147,9 @@ def md_table(rows: list[CheckRow]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only external precondition snapshot for RF_COMM acceptance.")
-    parser.add_argument("--target-host", default="192.168.1.10", help="Single-board static fallback IP to probe.")
-    parser.add_argument("--target-host-a", default="192.168.1.10", help="AX7010 A static fallback IP to probe.")
-    parser.add_argument("--target-host-b", default="192.168.1.11", help="AX7010 B static fallback IP to probe.")
+    parser.add_argument("--target-host", default="192.168.10.2", help="Single-board static fallback IP to probe.")
+    parser.add_argument("--target-host-a", default="192.168.10.2", help="AX7010 A static fallback IP to probe.")
+    parser.add_argument("--target-host-b", default="192.168.10.3", help="AX7010 B static fallback IP to probe.")
     parser.add_argument("--tcp-port", type=int, default=5001, help="RFCM TCP port.")
     parser.add_argument("--timeout", type=float, default=0.5, help="TCP probe timeout seconds.")
     parser.add_argument("--skip-tcp-probe", action="store_true", help="Do not attempt quick TCP connect probes.")

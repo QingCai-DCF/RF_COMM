@@ -243,7 +243,7 @@ if ($TargetHost -eq "" -and $boardIps.Count -gt 0) {
     Write-SummaryLine "TARGET_HOST_FROM_UART=$TargetHost"
 }
 if ($TargetHost -eq "" -and $UseStaticFallback) {
-    $TargetHost = "192.168.1.10"
+    $TargetHost = "192.168.10.2"
     Write-SummaryLine "TARGET_HOST_STATIC_FALLBACK=$TargetHost"
 }
 Write-SummaryLine "TARGET_HOST_EFFECTIVE=$TargetHost"
@@ -346,7 +346,7 @@ $smokeOk = ($smokeResult.ExitCode -eq 0 -and $smokeResult.Stdout -match "ACK" -a
 $reconnectOk = ($reconnectResult.ExitCode -eq 0 -and $reconnectResult.Stdout -match "reconnect cycle $ReconnectCycles/$ReconnectCycles")
 $networkEvidenceOk = ($tcpQuick -or $smokeOk)
 $dhcpEvidenceOk = ($boardIps.Count -gt 0 -or $TargetHost -ne "")
-$fallbackEvidence = ($dhcpFallbackSeen -or $TargetHost -eq "192.168.1.10")
+$fallbackEvidence = ($dhcpFallbackSeen -or $TargetHost -eq "192.168.10.2")
 
 Write-SummaryLine "SMOKE_OK=$([int]$smokeOk)"
 Write-SummaryLine "RECONNECT_OK=$([int]$reconnectOk)"

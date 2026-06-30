@@ -104,7 +104,7 @@ Network behavior
 ----------------
 
 - TCP port: 5001
-- DHCP timeout fallback address: `192.168.1.10/24`, gateway `192.168.1.1`
+- DHCP timeout fallback address: `192.168.10.2/24`, gateway `192.168.10.1`
 - MAC address default: `00:0A:35:00:01:10`
 
 PC protocol
@@ -136,11 +136,12 @@ Frame types:
 CONFIG payload:
 
 ```text
-byte 0     mask bits: bit0=enable, bit1=session_id, bit2=tx/legacy lane_mask, bit3=rx_lane_mask
+byte 0     mask bits: bit0=enable, bit1=session_id, bit2=tx/legacy lane_mask, bit3=rx_lane_mask, bit4=N03 mode
 byte 1     enable value when mask bit0 is set, 0=disable, nonzero=enable
 byte 2..3  session_id little-endian when mask bit1 is set
 byte 4..7  tx/legacy lane_mask little-endian when mask bit2 is set
 byte 8..11 optional rx_lane_mask little-endian when mask bit3 is set
+byte 12..15 optional N03 mode little-endian when mask bit4 is set
 ```
 
 The 8-byte legacy payload remains valid: when bit2 is set and bit3 is clear,
@@ -149,6 +150,13 @@ payload allows lane partitioning, for example TX mask `0x3` and RX mask `0xc`,
 which is needed for later full-duplex hardware bring-up. The PS side applies
 session/lane-mask changes by briefly disabling the PL IR link, writing the
 AXI-Lite config registers, then committing the requested final enable state.
+
+For N03 network-first work, the 16-byte CONFIG form selects a bridge mode:
+`network_memory_echo`, `pspl_synth_loopback`, or `ir_physical`. The first two
+paths force the physical IR enable bit off while preserving session/lane
+observability. `ir_physical` is intentionally rejected with
+`ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE` until an explicit IR physical phase is
+reopened.
 
 STATUS_RSP payload:
 
@@ -204,23 +212,24 @@ PC-side bring-up commands
 From the repository root:
 
 ```powershell
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --hello --status --require-clean
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --config-session 0x1234 --config-lane-mask 0x1 --config-enable 1 --status --require-clean
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --config-tx-lane-mask 0x3 --config-rx-lane-mask 0xc --status --require-clean
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --clear
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --send-text 'rf_comm_smoke' --listen
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --hello --status --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-session 0x1234 --config-lane-mask 0x1 --config-enable 0 --config-mode network_memory_echo --status --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-mode pspl_synth_loopback --status --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-mode ir_physical --expect-error ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --clear
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --send-text 'rf_comm_smoke' --listen
 ```
 
 Continuous single-lane bring-up traffic:
 
 ```powershell
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --repeat 1000 --payload-size 32 --window 1 --ack-timeout 3 --status-interval 1 --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --repeat 1000 --payload-size 32 --window 1 --ack-timeout 3 --status-interval 1 --require-clean
 ```
 
 Fixed-duration soak entry for later stability testing:
 
 ```powershell
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --duration 600 --payload-size 32 --window 1 --ack-timeout 3 --interval 0.01 --status-interval 5 --csv-log '.\software\host_client\logs\soak_2h.csv' --quiet --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --duration 600 --payload-size 32 --window 1 --ack-timeout 3 --interval 0.01 --status-interval 5 --csv-log '.\software\host_client\logs\soak_2h.csv' --quiet --require-clean
 ```
 
 The repeat/soak command prints a final summary with transmitted payload bytes,
@@ -236,10 +245,11 @@ scripts; the wrapper caps physical runs at 600 seconds and analyzes against a
 For repeatable board-level evidence, use the wrapper:
 
 ```powershell
-.\software\host_client\run_acceptance.ps1 -Mode smoke -TargetHost 192.168.1.10
-.\software\host_client\run_acceptance.ps1 -Mode single_lane -TargetHost 192.168.1.10
-.\software\host_client\run_acceptance.ps1 -Mode soak_2h -TargetHost 192.168.1.10
-.\software\host_client\run_acceptance.ps1 -Mode reconnect -TargetHost 192.168.1.10
+.\software\host_client\run_acceptance.ps1 -Mode smoke -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_memory_echo -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_pspl_synth -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_negative -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode reconnect -TargetHost 192.168.10.2
 ```
 
 Add `-MinTxMbps`, `-MinRxMbps`, or `-MinRxFrames` when a run should fail
@@ -258,7 +268,7 @@ python '.\software\host_client\analyze_acceptance_log.py' '.\software\host_clien
 TCP reconnect smoke test:
 
 ```powershell
-python '.\software\host_client\rf_comm_client.py' --host 192.168.1.10 --reconnect-cycles 20
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --reconnect-cycles 20
 ```
 
 Offline PC protocol regression:
@@ -282,9 +292,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File '.\software\host_client\run_
 That mode starts the standalone `mock_rfcm_server.py` on an automatically
 selected localhost TCP port, runs the same PC-side command path used for
 hardware smoke tests, writes a CSV log, analyzes the log, and performs reconnect
-checks. It is a tooling/protocol regression only; real DHCP/static fallback,
-TCP port 5001 on the Zynq PS, DMA, PL, and optical-link behavior still require
-a board run.
+checks. It also covers the N03 memory echo, PS/PL synthetic loopback, and
+IR-deferred negative command paths. It is a tooling/protocol regression only;
+real DHCP/static fallback, TCP port 5001 on the Zynq PS, DMA, PL, and
+optical-link behavior still require a board run.
 
 Offline PS bridge source checks:
 
