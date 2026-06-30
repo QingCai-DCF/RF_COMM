@@ -1,9 +1,11 @@
-generated=2026-07-01T00:19:15
+generated=2026-07-01T00:25:19
 status=BLOCKED_PC_STATIC_IP_NOT_CONFIGURED
 target=192.168.10.2:5001
 current_preflight=PC Ethernet lacks 192.168.10.1/24 static direct IP
 static_direct_preflight_summary=reports/n03_static_direct_network_preflight_current.summary.txt
-safe_wrapper_summary=reports/n03_network_first_acceptance_safe_20260701_001907.summary.txt
+latest_elevated_launch_summary=reports/n03_static_direct_network_preflight_20260701_002437.summary.txt
+latest_elevated_launch_pending_or_declined=1
+safe_wrapper_summary=reports/n03_network_first_acceptance_safe_20260701_002508.summary.txt
 pc_expected_static_ip_present=0
 is_admin=0
 admin_required_to_apply=1

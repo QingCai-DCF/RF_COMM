@@ -39,6 +39,14 @@ def latest(pattern: str) -> Path | None:
     return sorted(matches, key=lambda p: p.stat().st_mtime, reverse=True)[0]
 
 
+def latest_with_marker(pattern: str, value: str) -> Path | None:
+    matches = sorted(REPORTS.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in matches:
+        if value in read_text(path):
+            return path
+    return None
+
+
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -192,6 +200,8 @@ def main() -> int:
     static_net_text = read_text(static_net_summary)
     static_net_report = current_report("n03_static_direct_network_preflight_current.md")
     static_net_json = current_report("n03_static_direct_network_preflight_current.json")
+    static_launch_summary = latest_with_marker("n03_static_direct_network_preflight_*.summary.txt", "LAUNCH_ELEVATED_APPLY=1")
+    static_launch_text = read_text(static_launch_summary)
     uart_summary = latest("ps_uart_boot_probe_*.summary.txt")
     uart_text = read_text(uart_summary)
     external_json = REPORTS / "external_preconditions_current.json"
@@ -231,6 +241,7 @@ def main() -> int:
     elevated_uac_command = marker_value(static_net_text, "ELEVATED_UAC_COMMAND")
     is_admin = marker_value(static_net_text, "IS_ADMIN")
     admin_required = marker_value(static_net_text, "ADMIN_REQUIRED_TO_APPLY")
+    launch_pending = marker(static_launch_text, "LAUNCH_ELEVATED_APPLY_PENDING_OR_DECLINED=1")
     uart_verdict = marker_value(uart_text, "UART_PROBE_VERDICT")
     uart_log_bytes_text = marker_value(uart_text, "UART_LOG_BYTES")
     try:
@@ -391,7 +402,7 @@ def main() -> int:
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nelevated_uac_command={elevated_uac_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nlatest_elevated_launch_summary={rel(static_launch_summary)}\nlatest_elevated_launch_pending_or_declined={int(launch_pending)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nelevated_uac_command={elevated_uac_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
@@ -518,6 +529,7 @@ def main() -> int:
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
+        f"- Latest elevated static setup launch summary: `{rel(static_launch_summary)}`",
         f"- Latest UART boot probe summary: `{rel(uart_summary)}`",
         f"- Safe real-board wrapper summary: `{rel(safe_summary)}`",
         f"- Safe real-board wrapper report: `{rel(safe_report)}`",

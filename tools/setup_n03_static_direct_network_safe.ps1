@@ -195,8 +195,17 @@ $elevatedApplyArgLine = (($elevatedApplyArgs | ForEach-Object { Quote-CommandArg
 $elevatedApplyCommand = "powershell.exe $elevatedApplyArgLine"
 $escapedElevatedApplyArgLine = $elevatedApplyArgLine -replace "'", "''"
 $elevatedUacCommand = "Start-Process -FilePath powershell.exe -ArgumentList '$escapedElevatedApplyArgLine' -Verb RunAs"
+$detachedUacScript = "Start-Process -FilePath powershell.exe -ArgumentList '$escapedElevatedApplyArgLine' -Verb RunAs"
+$detachedUacArgs = @(
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    $detachedUacScript
+)
 Write-SummaryLine "ELEVATED_APPLY_COMMAND=$elevatedApplyCommand"
 Write-SummaryLine "ELEVATED_UAC_COMMAND=$elevatedUacCommand"
+Write-SummaryLine "ELEVATED_DETACHED_UAC_COMMAND=Start-Process -FilePath powershell.exe -ArgumentList <uac-helper> -WindowStyle Hidden"
 Write-SummaryLine "ELEVATED_APPLY_COMMAND_NOTE=run_uac_then_rerun_preflight"
 if (-not $isAdmin -and -not $expectedIpPresent) {
     Write-SummaryLine "ADMIN_REQUIRED_TO_APPLY=1"
@@ -214,7 +223,7 @@ if ($LaunchElevatedApply -and -not $expectedIpPresent) {
         $AddFirewallRule = [System.Management.Automation.SwitchParameter]::Present
     } else {
         Write-SummaryLine "LAUNCH_ELEVATED_APPLY_START=1"
-        Start-Process -FilePath "powershell.exe" -ArgumentList $elevatedApplyArgs -WorkingDirectory $repoRoot -Verb RunAs | Out-Null
+        Start-Process -FilePath "powershell.exe" -ArgumentList $detachedUacArgs -WorkingDirectory $repoRoot -WindowStyle Hidden | Out-Null
         Write-SummaryLine "LAUNCH_ELEVATED_APPLY_STARTED=1"
         $pollDeadline = (Get-Date).AddSeconds([Math]::Max(0, $PostLaunchPollSeconds))
         do {
