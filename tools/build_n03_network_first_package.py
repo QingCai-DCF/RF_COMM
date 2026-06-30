@@ -76,6 +76,11 @@ def sibling_report(summary: Path | None, suffix: str) -> Path | None:
     return path if path.exists() else None
 
 
+def current_report(name: str) -> Path | None:
+    path = REPORTS / name
+    return path if path.exists() else None
+
+
 def md_table(rows: list[StageRow]) -> str:
     lines = [
         "| item | title | status | evidence | next required evidence | allowed claim |",
@@ -125,6 +130,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "ps_lwip_bridge" / "src" / "rf_protocol.h",
         ROOT / "software" / "host_client" / "rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
+        ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
         ROOT / "tools" / "run_ps_pc_offline_gates.ps1",
     ]
@@ -181,6 +187,10 @@ def main() -> int:
     safe_text = read_text(safe_summary)
     safe_report = sibling_report(safe_summary, ".md")
     safe_matrix = sibling_report(safe_summary, ".matrix.csv")
+    static_net_summary = current_report("n03_static_direct_network_preflight_current.summary.txt")
+    static_net_text = read_text(static_net_summary)
+    static_net_report = current_report("n03_static_direct_network_preflight_current.md")
+    static_net_json = current_report("n03_static_direct_network_preflight_current.json")
     external_json = REPORTS / "external_preconditions_current.json"
     external = {}
     if external_json.exists():
@@ -205,11 +215,16 @@ def main() -> int:
     safe_negative_ok = marker(safe_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1") and not safe_dry_run
     safe_link_ok = marker(safe_text, "N03_LINK_RECOVERY_PASS=1") and not safe_dry_run
     safe_acceptance_ok = marker(safe_text, "N03_REAL_BOARD_ACCEPTANCE_PASS=1") and not safe_dry_run
+    pc_static_ip_ok = marker(static_net_text, "PC_EXPECTED_STATIC_IP_PRESENT=1")
+    pc_ethernet_up = marker(static_net_text, "PC_ETHERNET_LINK_UP=1")
+    static_net_pass = marker(static_net_text, "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_PASS=1")
     static_ok = marker(read_text(static_report), "PS_BRIDGE_STATIC_CHECKS_PASS") or marker(offline_text, "PS_BRIDGE_STATIC_CHECKS_PASS")
     protocol_ok = marker(read_text(protocol_contract), "RF_COMM_PROTOCOL_CONTRACT overall=PASS")
     single_tcp = external.get("tcp_results", {}).get("single", None)
     real_board_reachable = safe_static_ok or single_tcp is True
-    if safe_blocked:
+    if static_net_text and not pc_static_ip_ok:
+        blocker_note = "PC Ethernet lacks 192.168.10.1/24 static direct IP"
+    elif safe_blocked:
         blocker_note = f"safe wrapper blocked: {safe_blocker or 'unknown'}"
     else:
         blocker_note = "192.168.10.2:5001 reachable" if real_board_reachable else "192.168.10.2:5001 not reachable in current preflight"
@@ -217,6 +232,8 @@ def main() -> int:
     static_status = (
         "PASS_REAL_BOARD"
         if safe_static_ok
+        else "BLOCKED_PC_STATIC_IP_NOT_CONFIGURED"
+        if static_net_text and pc_ethernet_up and not pc_static_ip_ok
         else "BLOCKED_TCP_TARGET_NOT_REACHABLE"
         if safe_blocked and safe_blocker == "tcp_target_not_reachable"
         else "READY_TO_RUN"
@@ -234,7 +251,12 @@ def main() -> int:
         if negative_ok and marker(offline_text, "reconnect cycle 2/2")
         else "MISSING_OR_PARTIAL"
     )
-    safe_evidence = rel(safe_summary) if safe_summary is not None else rel(external_json)
+    safe_evidence_parts = [
+        rel(static_net_summary) if static_net_summary is not None else "MISSING_N03_STATIC_DIRECT_PREFLIGHT",
+        rel(safe_summary) if safe_summary is not None else "MISSING_N03_SAFE_ACCEPTANCE",
+        rel(external_json),
+    ]
+    safe_evidence = "; ".join(safe_evidence_parts)
 
     rows = [
         StageRow(
@@ -249,7 +271,7 @@ def main() -> int:
             "N03-1",
             "static IP direct smoke",
             static_status,
-            f"{safe_evidence}; {rel(external_json)}; {blocker_note}",
+            f"{safe_evidence}; {blocker_note}",
             "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001",
             "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1",
         ),
@@ -321,7 +343,7 @@ def main() -> int:
             "N03-10",
             "network-first acceptance package",
             "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-            f"{rel(OUT)}; {rel(safe_report)}",
+            f"{rel(OUT)}; {rel(static_net_report)}; {rel(safe_report)}",
             "N03-1..N03-6, N03-8, and N03-9 real board evidence",
             "package is ready for review, not final N03 pass",
         ),
@@ -332,13 +354,13 @@ def main() -> int:
         report_template(
             "N03-1 Static IP Direct Smoke",
             rows[1].status,
-            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. This file is a runbook/status record, not a real-board PASS transcript.",
+            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. This file is a runbook/status record, not a real-board PASS transcript.",
             rows,
         ),
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nsafe_wrapper_summary={rel(safe_summary)}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
@@ -462,6 +484,9 @@ def main() -> int:
         "## Current Source/Offline Evidence",
         "",
         f"- Offline summary: `{rel(offline_summary)}`",
+        f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
+        f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
+        f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
         f"- Safe real-board wrapper summary: `{rel(safe_summary)}`",
         f"- Safe real-board wrapper report: `{rel(safe_report)}`",
         f"- Safe real-board wrapper matrix: `{rel(safe_matrix)}`",
@@ -503,6 +528,7 @@ def main() -> int:
     print(f"WROTE_N03_PACKAGE={OUT}")
     print(f"N03_PACKAGE_STATUS={rows[-1].status}")
     print(f"N03_OFFLINE_SUMMARY={rel(offline_summary)}")
+    print(f"N03_STATIC_DIRECT_PREFLIGHT_SUMMARY={rel(static_net_summary)}")
     print(f"N03_SAFE_ACCEPTANCE_SUMMARY={rel(safe_summary)}")
     print(f"N03_SAFE_ACCEPTANCE_PASS={int(safe_acceptance_ok)}")
     print("N03_REAL_BOARD_PASS=0")

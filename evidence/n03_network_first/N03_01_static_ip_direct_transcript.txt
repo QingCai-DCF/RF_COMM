@@ -1,6 +1,8 @@
-generated=2026-06-30T23:45:04
-status=BLOCKED_TCP_TARGET_NOT_REACHABLE
+generated=2026-06-30T23:51:37
+status=BLOCKED_PC_STATIC_IP_NOT_CONFIGURED
 target=192.168.10.2:5001
-current_preflight=safe wrapper blocked: tcp_target_not_reachable
+current_preflight=PC Ethernet lacks 192.168.10.1/24 static direct IP
+static_direct_preflight_summary=reports/n03_static_direct_network_preflight_current.summary.txt
 safe_wrapper_summary=reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt
+pc_expected_static_ip_present=0
 real_tcp_connect_pass=0

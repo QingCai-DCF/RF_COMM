@@ -10,8 +10,8 @@
   {
     "item": "N03-1",
     "title": "static IP direct smoke",
-    "status": "BLOCKED_TCP_TARGET_NOT_REACHABLE",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt; reports/external_preconditions_current.json; safe wrapper blocked: tcp_target_not_reachable",
+    "status": "BLOCKED_PC_STATIC_IP_NOT_CONFIGURED",
+    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt; reports/external_preconditions_current.json; PC Ethernet lacks 192.168.10.1/24 static direct IP",
     "next_required_evidence": "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001",
     "allowed_claim": "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1"
   },
@@ -83,7 +83,7 @@
     "item": "N03-10",
     "title": "network-first acceptance package",
     "status": "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-    "evidence": "evidence/n03_network_first; reports/n03_network_first_acceptance_safe_20260630_234410.md",
+    "evidence": "evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260630_234410.md",
     "next_required_evidence": "N03-1..N03-6, N03-8, and N03-9 real board evidence",
     "allowed_claim": "package is ready for review, not final N03 pass"
   }
