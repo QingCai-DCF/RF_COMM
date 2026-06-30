@@ -60,6 +60,22 @@ def marker(text: str, value: str) -> bool:
     return value in text
 
 
+def marker_value(text: str, key: str) -> str:
+    prefix = key + "="
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line.split("=", 1)[1].strip()
+    return ""
+
+
+def sibling_report(summary: Path | None, suffix: str) -> Path | None:
+    if summary is None:
+        return None
+    name = summary.name.removesuffix(".summary.txt") + suffix
+    path = summary.with_name(name)
+    return path if path.exists() else None
+
+
 def md_table(rows: list[StageRow]) -> str:
     lines = [
         "| item | title | status | evidence | next required evidence | allowed claim |",
@@ -109,6 +125,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "ps_lwip_bridge" / "src" / "rf_protocol.h",
         ROOT / "software" / "host_client" / "rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
+        ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
         ROOT / "tools" / "run_ps_pc_offline_gates.ps1",
     ]
     rows: list[dict[str, str]] = []
@@ -160,6 +177,10 @@ def main() -> int:
 
     offline_summary = latest("ps_pc_offline_gates_*.summary.txt")
     offline_text = read_text(offline_summary)
+    safe_summary = latest("n03_network_first_acceptance_safe_*.summary.txt")
+    safe_text = read_text(safe_summary)
+    safe_report = sibling_report(safe_summary, ".md")
+    safe_matrix = sibling_report(safe_summary, ".matrix.csv")
     external_json = REPORTS / "external_preconditions_current.json"
     external = {}
     if external_json.exists():
@@ -174,11 +195,46 @@ def main() -> int:
     synth_ok = marker(offline_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1")
     negative_ok = marker(offline_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
+    safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
+    safe_blocked = marker(safe_text, "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1")
+    safe_blocker = marker_value(safe_text, "N03_BLOCKED_REASON")
+    safe_static_ok = marker(safe_text, "N03_STATIC_DIRECT_TCP_PASS=1") and not safe_dry_run
+    safe_command_ok = marker(safe_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1") and not safe_dry_run
+    safe_memory_ok = marker(safe_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1") and not safe_dry_run
+    safe_synth_ok = marker(safe_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1") and not safe_dry_run
+    safe_negative_ok = marker(safe_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1") and not safe_dry_run
+    safe_link_ok = marker(safe_text, "N03_LINK_RECOVERY_PASS=1") and not safe_dry_run
+    safe_acceptance_ok = marker(safe_text, "N03_REAL_BOARD_ACCEPTANCE_PASS=1") and not safe_dry_run
     static_ok = marker(read_text(static_report), "PS_BRIDGE_STATIC_CHECKS_PASS") or marker(offline_text, "PS_BRIDGE_STATIC_CHECKS_PASS")
     protocol_ok = marker(read_text(protocol_contract), "RF_COMM_PROTOCOL_CONTRACT overall=PASS")
     single_tcp = external.get("tcp_results", {}).get("single", None)
-    real_board_reachable = single_tcp is True
-    blocker_note = "192.168.10.2:5001 reachable" if real_board_reachable else "192.168.10.2:5001 not reachable in current preflight"
+    real_board_reachable = safe_static_ok or single_tcp is True
+    if safe_blocked:
+        blocker_note = f"safe wrapper blocked: {safe_blocker or 'unknown'}"
+    else:
+        blocker_note = "192.168.10.2:5001 reachable" if real_board_reachable else "192.168.10.2:5001 not reachable in current preflight"
+
+    static_status = (
+        "PASS_REAL_BOARD"
+        if safe_static_ok
+        else "BLOCKED_TCP_TARGET_NOT_REACHABLE"
+        if safe_blocked and safe_blocker == "tcp_target_not_reachable"
+        else "READY_TO_RUN"
+        if real_board_reachable
+        else "REAL_BOARD_PENDING"
+    )
+    hello_status = "PASS_REAL_BOARD" if safe_static_ok else ("PASS_OFFLINE_REAL_PENDING" if offline_ok else "MISSING_OFFLINE_EVIDENCE")
+    command_status = "PASS_REAL_BOARD" if safe_command_ok else ("PASS_OFFLINE_REAL_PENDING" if command_ok and protocol_ok else "MISSING_OR_PARTIAL")
+    memory_status = "PASS_REAL_BOARD" if safe_memory_ok else ("PASS_OFFLINE_REAL_PENDING" if memory_ok else "MISSING_OFFLINE_EVIDENCE")
+    synth_status = "PASS_REAL_BOARD" if safe_synth_ok else ("PASS_OFFLINE_REAL_PENDING" if synth_ok else "MISSING_OFFLINE_EVIDENCE")
+    link_status = (
+        "PASS_REAL_BOARD"
+        if safe_link_ok and safe_negative_ok
+        else "PASS_OFFLINE_REAL_LINK_PENDING"
+        if negative_ok and marker(offline_text, "reconnect cycle 2/2")
+        else "MISSING_OR_PARTIAL"
+    )
+    safe_evidence = rel(safe_summary) if safe_summary is not None else rel(external_json)
 
     rows = [
         StageRow(
@@ -192,42 +248,42 @@ def main() -> int:
         StageRow(
             "N03-1",
             "static IP direct smoke",
-            "REAL_BOARD_PENDING" if not real_board_reachable else "READY_TO_RUN",
-            f"{rel(external_json)}; {blocker_note}",
+            static_status,
+            f"{safe_evidence}; {rel(external_json)}; {blocker_note}",
             "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001",
-            "no real static TCP pass yet",
+            "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1",
         ),
         StageRow(
             "N03-2",
             "TCP hello/status/build-id",
-            "PASS_OFFLINE_REAL_PENDING" if offline_ok else "MISSING_OFFLINE_EVIDENCE",
-            rel(offline_summary),
+            hello_status,
+            f"{rel(safe_summary)}; {rel(offline_summary)}",
             "real board HELLO/STATUS/GET_BUILD_ID transcript",
-            "offline TCP protocol path only",
+            "real HELLO covered only if safe wrapper static smoke passed",
         ),
         StageRow(
             "N03-3",
             "TCP command protocol coverage",
-            "PASS_OFFLINE_REAL_PENDING" if command_ok and protocol_ok else "MISSING_OR_PARTIAL",
-            f"{rel(offline_summary)}; {rel(protocol_contract)}",
+            command_status,
+            f"{rel(safe_summary)}; {rel(offline_summary)}; {rel(protocol_contract)}",
             "real board command matrix with ACK/ERR for all N03 commands",
-            "N03_TCP_PROTOCOL_COMMAND_PASS only for offline/mock",
+            "N03_TCP_PROTOCOL_COMMAND_PASS is real only if safe wrapper marker is 1",
         ),
         StageRow(
             "N03-4",
             "PC to PS memory echo",
-            "PASS_OFFLINE_REAL_PENDING" if memory_ok else "MISSING_OFFLINE_EVIDENCE",
-            rel(offline_summary),
+            memory_status,
+            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}",
             "real board memory echo matrix with payload_mismatch=0",
-            "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS only for offline/mock",
+            "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS is real only if safe wrapper marker is 1",
         ),
         StageRow(
             "N03-5",
             "PC to PS to PL synthetic loopback",
-            "PASS_OFFLINE_REAL_PENDING" if synth_ok else "MISSING_OFFLINE_EVIDENCE",
-            rel(offline_summary),
+            synth_status,
+            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}",
             "real board PS/PL synthetic matrix with DMA counters and payload_mismatch=0",
-            "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS only for offline/mock",
+            "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS is real only if safe wrapper marker is 1",
         ),
         StageRow(
             "N03-6",
@@ -256,16 +312,16 @@ def main() -> int:
         StageRow(
             "N03-9",
             "link recovery and negative tests",
-            "PASS_OFFLINE_REAL_LINK_PENDING" if negative_ok and marker(offline_text, "reconnect cycle 2/2") else "MISSING_OR_PARTIAL",
-            rel(offline_summary),
+            link_status,
+            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}",
             "real reconnect/disconnect matrix and negative command matrix",
-            "offline reconnect and negative command coverage only",
+            "real link recovery only if safe wrapper reconnect and negative markers are 1",
         ),
         StageRow(
             "N03-10",
             "network-first acceptance package",
             "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-            rel(OUT),
+            f"{rel(OUT)}; {rel(safe_report)}",
             "N03-1..N03-6, N03-8, and N03-9 real board evidence",
             "package is ready for review, not final N03 pass",
         ),
@@ -282,7 +338,7 @@ def main() -> int:
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nreal_tcp_connect_pass=0\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nsafe_wrapper_summary={rel(safe_summary)}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
@@ -397,7 +453,7 @@ def main() -> int:
         "",
         "Verdict: `PACKAGE_PARTIAL_REAL_BOARD_PENDING`",
         "",
-        "This package is a current-state N03 deliverable bundle. It proves source/offline/mock progress and preserves the real-board blockers. It does not claim the final N03 baseline PASS.",
+        "This package is a current-state N03 deliverable bundle. It proves source/offline/mock progress, incorporates the latest safe real-board wrapper result when present, and preserves the remaining real-board blockers. It does not claim the final N03 baseline PASS.",
         "",
         "## Stage Matrix",
         "",
@@ -406,6 +462,9 @@ def main() -> int:
         "## Current Source/Offline Evidence",
         "",
         f"- Offline summary: `{rel(offline_summary)}`",
+        f"- Safe real-board wrapper summary: `{rel(safe_summary)}`",
+        f"- Safe real-board wrapper report: `{rel(safe_report)}`",
+        f"- Safe real-board wrapper matrix: `{rel(safe_matrix)}`",
         f"- Static PS bridge report: `{rel(static_report)}`",
         f"- Protocol contract report: `{rel(protocol_contract)}`",
         f"- External preconditions: `{rel(external_json)}`",
@@ -444,6 +503,8 @@ def main() -> int:
     print(f"WROTE_N03_PACKAGE={OUT}")
     print(f"N03_PACKAGE_STATUS={rows[-1].status}")
     print(f"N03_OFFLINE_SUMMARY={rel(offline_summary)}")
+    print(f"N03_SAFE_ACCEPTANCE_SUMMARY={rel(safe_summary)}")
+    print(f"N03_SAFE_ACCEPTANCE_PASS={int(safe_acceptance_ok)}")
     print("N03_REAL_BOARD_PASS=0")
     print("NO_IR_PHYSICAL_PASS_CLAIM=1")
     print("NO_2LANE_PASS_CLAIM=1")

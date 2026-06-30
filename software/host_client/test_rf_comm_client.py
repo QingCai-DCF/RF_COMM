@@ -939,9 +939,9 @@ class RFClientOfflineTests(unittest.TestCase):
                     client.close()
                     right.close()
 
-    def test_generated_payload_limit_accepts_g1_size(self) -> None:
-        self.assertEqual(rf.MAX_GENERATED_PAYLOAD, 256)
-        self.assertEqual(len(rf.make_payload(0, 256)), 256)
+    def test_generated_payload_limit_accepts_full_tcp_frame_size(self) -> None:
+        self.assertEqual(rf.MAX_GENERATED_PAYLOAD, rf.MAX_FRAME_PAYLOAD)
+        self.assertEqual(len(rf.make_payload(0, rf.MAX_FRAME_PAYLOAD)), rf.MAX_FRAME_PAYLOAD)
 
     def test_reconnect_cycles(self) -> None:
         server = MockRFCMServer(rx_echo=False)
