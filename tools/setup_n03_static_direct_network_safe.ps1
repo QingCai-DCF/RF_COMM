@@ -6,6 +6,7 @@ param(
     [string]$TargetHost = "192.168.10.2",
     [int]$Port = 5001,
     [int]$TimeoutMs = 1000,
+    [int]$PostLaunchPollSeconds = 15,
     [switch]$Apply,
     [switch]$AddFirewallRule,
     [switch]$LaunchElevatedApply,
@@ -107,6 +108,7 @@ Write-SummaryLine "PREFIX_LENGTH=$PrefixLength"
 Write-SummaryLine "TARGET_HOST=$TargetHost"
 Write-SummaryLine "PORT=$Port"
 Write-SummaryLine "TIMEOUT_MS=$TimeoutMs"
+Write-SummaryLine "POST_LAUNCH_POLL_SECONDS=$PostLaunchPollSeconds"
 Write-SummaryLine "APPLY=$([int]$Apply.IsPresent)"
 Write-SummaryLine "ADD_FIREWALL_RULE=$([int]$AddFirewallRule.IsPresent)"
 Write-SummaryLine "LAUNCH_ELEVATED_APPLY=$([int]$LaunchElevatedApply.IsPresent)"
@@ -192,10 +194,10 @@ $elevatedApplyArgs = @(
 $elevatedApplyArgLine = (($elevatedApplyArgs | ForEach-Object { Quote-CommandArg $_ }) -join " ")
 $elevatedApplyCommand = "powershell.exe $elevatedApplyArgLine"
 $escapedElevatedApplyArgLine = $elevatedApplyArgLine -replace "'", "''"
-$elevatedUacCommand = "Start-Process -FilePath powershell.exe -ArgumentList '$escapedElevatedApplyArgLine' -Verb RunAs -Wait"
+$elevatedUacCommand = "Start-Process -FilePath powershell.exe -ArgumentList '$escapedElevatedApplyArgLine' -Verb RunAs"
 Write-SummaryLine "ELEVATED_APPLY_COMMAND=$elevatedApplyCommand"
 Write-SummaryLine "ELEVATED_UAC_COMMAND=$elevatedUacCommand"
-Write-SummaryLine "ELEVATED_APPLY_COMMAND_NOTE=run_from_administrator_powershell"
+Write-SummaryLine "ELEVATED_APPLY_COMMAND_NOTE=run_uac_then_rerun_preflight"
 if (-not $isAdmin -and -not $expectedIpPresent) {
     Write-SummaryLine "ADMIN_REQUIRED_TO_APPLY=1"
     Write-SummaryLine "N03_STATIC_DIRECT_NETWORK_NEXT_ACTION=run_elevated_uac_command"
@@ -212,16 +214,24 @@ if ($LaunchElevatedApply -and -not $expectedIpPresent) {
         $AddFirewallRule = [System.Management.Automation.SwitchParameter]::Present
     } else {
         Write-SummaryLine "LAUNCH_ELEVATED_APPLY_START=1"
-        Start-Process -FilePath "powershell.exe" -ArgumentList $elevatedApplyArgs -WorkingDirectory $repoRoot -Verb RunAs -Wait
-        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_DONE=1"
-        $existingIps = @(Get-NetIPAddress -InterfaceIndex $selected.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue)
-        $expectedIpPresent = $false
-        foreach ($ip in $existingIps) {
-            if ($ip.IPAddress -eq $ExpectedPcIp -and [int]$ip.PrefixLength -eq $PrefixLength) {
-                $expectedIpPresent = $true
+        Start-Process -FilePath "powershell.exe" -ArgumentList $elevatedApplyArgs -WorkingDirectory $repoRoot -Verb RunAs | Out-Null
+        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_STARTED=1"
+        $pollDeadline = (Get-Date).AddSeconds([Math]::Max(0, $PostLaunchPollSeconds))
+        do {
+            Start-Sleep -Seconds 1
+            $existingIps = @(Get-NetIPAddress -InterfaceIndex $selected.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue)
+            $expectedIpPresent = $false
+            foreach ($ip in $existingIps) {
+                if ($ip.IPAddress -eq $ExpectedPcIp -and [int]$ip.PrefixLength -eq $PrefixLength) {
+                    $expectedIpPresent = $true
+                }
             }
-        }
+        } while (-not $expectedIpPresent -and (Get-Date) -lt $pollDeadline)
         Write-SummaryLine "PC_EXPECTED_STATIC_IP_PRESENT_AFTER_ELEVATED_LAUNCH=$([int]$expectedIpPresent)"
+        Write-SummaryLine "LAUNCH_ELEVATED_APPLY_POLL_DONE=1"
+        if (-not $expectedIpPresent) {
+            Write-SummaryLine "LAUNCH_ELEVATED_APPLY_PENDING_OR_DECLINED=1"
+        }
     }
 }
 
