@@ -30,7 +30,7 @@ $currentMd = Join-Path $reportsDir "n03_static_direct_network_preflight_current.
 function Write-SummaryLine {
     param([string]$Line)
     Write-Host $Line
-    Add-Content -LiteralPath $summaryLog -Value $Line -Encoding ascii
+    Add-Content -LiteralPath $summaryLog -Value $Line -Encoding utf8
 }
 
 function Test-TcpPortQuick {
@@ -85,7 +85,7 @@ function Is-EthernetCandidate {
     return ($joined -match "ethernet|realtek|gbe|2\.5gbe|lan")
 }
 
-"N03_STATIC_DIRECT_NETWORK_PREFLIGHT_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding ascii
+"N03_STATIC_DIRECT_NETWORK_PREFLIGHT_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding utf8
 Write-SummaryLine "REPO_ROOT=$repoRoot"
 Write-SummaryLine "INTERFACE_ALIAS_ARG=$InterfaceAlias"
 Write-SummaryLine "EXPECTED_PC_IP=$ExpectedPcIp"

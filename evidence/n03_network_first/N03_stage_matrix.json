@@ -50,8 +50,8 @@
   {
     "item": "N03-6",
     "title": "DHCP timeout plus static fallback",
-    "status": "SOURCE_READY_REAL_PENDING",
-    "evidence": "reports/ps_lwip_bridge_static_current.md",
+    "status": "SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING",
+    "evidence": "reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260630_235401.summary.txt",
     "next_required_evidence": "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
     "allowed_claim": "source supports fallback; no real fallback pass yet"
   },

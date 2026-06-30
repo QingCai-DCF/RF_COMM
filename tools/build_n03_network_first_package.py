@@ -130,6 +130,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "ps_lwip_bridge" / "src" / "rf_protocol.h",
         ROOT / "software" / "host_client" / "rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
+        ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
         ROOT / "tools" / "run_ps_pc_offline_gates.ps1",
@@ -191,6 +192,8 @@ def main() -> int:
     static_net_text = read_text(static_net_summary)
     static_net_report = current_report("n03_static_direct_network_preflight_current.md")
     static_net_json = current_report("n03_static_direct_network_preflight_current.json")
+    uart_summary = latest("ps_uart_boot_probe_*.summary.txt")
+    uart_text = read_text(uart_summary)
     external_json = REPORTS / "external_preconditions_current.json"
     external = {}
     if external_json.exists():
@@ -218,6 +221,17 @@ def main() -> int:
     pc_static_ip_ok = marker(static_net_text, "PC_EXPECTED_STATIC_IP_PRESENT=1")
     pc_ethernet_up = marker(static_net_text, "PC_ETHERNET_LINK_UP=1")
     static_net_pass = marker(static_net_text, "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_PASS=1")
+    static_apply_command = marker_value(static_net_text, "APPLY_DRY_RUN_COMMAND")
+    firewall_command = marker_value(static_net_text, "FIREWALL_DRY_RUN_COMMAND")
+    uart_verdict = marker_value(uart_text, "UART_PROBE_VERDICT")
+    uart_log_bytes_text = marker_value(uart_text, "UART_LOG_BYTES")
+    try:
+        uart_log_bytes = int(uart_log_bytes_text or "0")
+    except ValueError:
+        uart_log_bytes = 0
+    uart_has_text = uart_log_bytes > 0
+    uart_dhcp_fallback = marker(uart_text, "MATCH_DHCP_STATIC_FALLBACK=1")
+    uart_tcp_listen = marker(uart_text, "MATCH_TCP_LISTEN_5001=1")
     static_ok = marker(read_text(static_report), "PS_BRIDGE_STATIC_CHECKS_PASS") or marker(offline_text, "PS_BRIDGE_STATIC_CHECKS_PASS")
     protocol_ok = marker(read_text(protocol_contract), "RF_COMM_PROTOCOL_CONTRACT overall=PASS")
     single_tcp = external.get("tcp_results", {}).get("single", None)
@@ -244,6 +258,15 @@ def main() -> int:
     command_status = "PASS_REAL_BOARD" if safe_command_ok else ("PASS_OFFLINE_REAL_PENDING" if command_ok and protocol_ok else "MISSING_OR_PARTIAL")
     memory_status = "PASS_REAL_BOARD" if safe_memory_ok else ("PASS_OFFLINE_REAL_PENDING" if memory_ok else "MISSING_OFFLINE_EVIDENCE")
     synth_status = "PASS_REAL_BOARD" if safe_synth_ok else ("PASS_OFFLINE_REAL_PENDING" if synth_ok else "MISSING_OFFLINE_EVIDENCE")
+    dhcp_fallback_status = (
+        "PASS_UART_REAL_TCP_PENDING"
+        if uart_dhcp_fallback and uart_tcp_listen
+        else "SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING"
+        if static_ok and uart_summary is not None
+        else "SOURCE_READY_REAL_PENDING"
+        if static_ok
+        else "MISSING_SOURCE_EVIDENCE"
+    )
     link_status = (
         "PASS_REAL_BOARD"
         if safe_link_ok and safe_negative_ok
@@ -310,8 +333,8 @@ def main() -> int:
         StageRow(
             "N03-6",
             "DHCP timeout plus static fallback",
-            "SOURCE_READY_REAL_PENDING" if static_ok else "MISSING_SOURCE_EVIDENCE",
-            rel(static_report),
+            dhcp_fallback_status,
+            f"{rel(static_report)}; {rel(uart_summary)}",
             "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
             "source supports fallback; no real fallback pass yet",
         ),
@@ -354,13 +377,13 @@ def main() -> int:
         report_template(
             "N03-1 Static IP Direct Smoke",
             rows[1].status,
-            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. This file is a runbook/status record, not a real-board PASS transcript.",
+            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Dry-run setup command: `{static_apply_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
             rows,
         ),
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\napply_dry_run_command={static_apply_command}\nfirewall_dry_run_command={firewall_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
@@ -422,11 +445,11 @@ def main() -> int:
     )
     write(
         OUT / "N03_06_dhcp_timeout_fallback_report.md",
-        report_template("N03-6 DHCP Timeout Static Fallback", rows[6].status, "Source/static checks confirm DHCP start/timeout/static fallback plumbing. Real UART and TCP fallback evidence remains pending.", rows),
+        report_template("N03-6 DHCP Timeout Static Fallback", rows[6].status, f"Source/static checks confirm DHCP start/timeout/static fallback plumbing. Latest read-only UART probe verdict: `{uart_verdict or 'MISSING'}` with {uart_log_bytes} captured bytes. Real UART DHCP fallback plus TCP fallback evidence remains pending.", rows),
     )
     write(
         OUT / "N03_06_dhcp_timeout_fallback_transcript.txt",
-        f"generated={generated}\nexpected_DHCP_TIMEOUT=1\nexpected_STATIC_FALLBACK_IP=192.168.10.2\nreal_uart_transcript_present=0\nstatus={rows[6].status}\n",
+        f"generated={generated}\nexpected_DHCP_TIMEOUT=1\nexpected_STATIC_FALLBACK_IP=192.168.10.2\nreal_uart_transcript_present={int(uart_has_text)}\nuart_summary={rel(uart_summary)}\nuart_probe_verdict={uart_verdict}\nuart_log_bytes={uart_log_bytes}\nuart_dhcp_static_fallback_seen={int(uart_dhcp_fallback)}\nuart_tcp_listen_5001_seen={int(uart_tcp_listen)}\nstatus={rows[6].status}\n",
     )
     write(
         OUT / "N03_07_pc_hosted_dhcp_lease_report.md",
@@ -487,6 +510,7 @@ def main() -> int:
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
+        f"- Latest UART boot probe summary: `{rel(uart_summary)}`",
         f"- Safe real-board wrapper summary: `{rel(safe_summary)}`",
         f"- Safe real-board wrapper report: `{rel(safe_report)}`",
         f"- Safe real-board wrapper matrix: `{rel(safe_matrix)}`",
@@ -529,6 +553,7 @@ def main() -> int:
     print(f"N03_PACKAGE_STATUS={rows[-1].status}")
     print(f"N03_OFFLINE_SUMMARY={rel(offline_summary)}")
     print(f"N03_STATIC_DIRECT_PREFLIGHT_SUMMARY={rel(static_net_summary)}")
+    print(f"N03_UART_SUMMARY={rel(uart_summary)}")
     print(f"N03_SAFE_ACCEPTANCE_SUMMARY={rel(safe_summary)}")
     print(f"N03_SAFE_ACCEPTANCE_PASS={int(safe_acceptance_ok)}")
     print("N03_REAL_BOARD_PASS=0")

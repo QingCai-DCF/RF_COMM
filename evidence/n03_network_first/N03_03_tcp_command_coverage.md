@@ -1,6 +1,6 @@
 # N03-3 TCP Command Coverage
 
-Generated: 2026-06-30T23:51:37
+Generated: 2026-06-30T23:55:59
 
 Verdict: `PASS_OFFLINE_REAL_PENDING`
 
@@ -16,7 +16,7 @@ N03 command frame covers PING, GET_VERSION, GET_BUILD_ID, READ commands, CONFIG 
 | N03-3 | TCP command protocol coverage | PASS_OFFLINE_REAL_PENDING | reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt; reports/ps_pc_offline_gates_20260630_234446.summary.txt; reports/protocol_contract_current.md | real board command matrix with ACK/ERR for all N03 commands | N03_TCP_PROTOCOL_COMMAND_PASS is real only if safe wrapper marker is 1 |
 | N03-4 | PC to PS memory echo | PASS_OFFLINE_REAL_PENDING | reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt; reports/n03_network_first_acceptance_safe_20260630_234410.matrix.csv; reports/ps_pc_offline_gates_20260630_234446.summary.txt | real board memory echo matrix with payload_mismatch=0 | N03_TCP_PAYLOAD_MEMORY_ECHO_PASS is real only if safe wrapper marker is 1 |
 | N03-5 | PC to PS to PL synthetic loopback | PASS_OFFLINE_REAL_PENDING | reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt; reports/n03_network_first_acceptance_safe_20260630_234410.matrix.csv; reports/ps_pc_offline_gates_20260630_234446.summary.txt | real board PS/PL synthetic matrix with DMA counters and payload_mismatch=0 | N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS is real only if safe wrapper marker is 1 |
-| N03-6 | DHCP timeout plus static fallback | SOURCE_READY_REAL_PENDING | reports/ps_lwip_bridge_static_current.md | UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence | source supports fallback; no real fallback pass yet |
+| N03-6 | DHCP timeout plus static fallback | SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING | reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260630_235401.summary.txt | UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence | source supports fallback; no real fallback pass yet |
 | N03-7 | PC-hosted DHCP lease | DEFERRED_NO_PC_DHCP_SERVER | no PC DHCP server run recorded | DHCP DISCOVER/OFFER/REQUEST/ACK and board IP in pool | no DHCP lease pass |
 | N03-8 | payload matrix and throughput | PARTIAL_OFFLINE_REAL_MATRIX_PENDING | reports/ps_pc_offline_gates_20260630_234446.summary.txt | real board 16..8192 byte payload matrix and throughput CSV | offline smoke payloads only |
 | N03-9 | link recovery and negative tests | PASS_OFFLINE_REAL_LINK_PENDING | reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt; reports/n03_network_first_acceptance_safe_20260630_234410.matrix.csv; reports/ps_pc_offline_gates_20260630_234446.summary.txt | real reconnect/disconnect matrix and negative command matrix | real link recovery only if safe wrapper reconnect and negative markers are 1 |

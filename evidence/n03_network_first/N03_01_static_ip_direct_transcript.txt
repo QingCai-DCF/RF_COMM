@@ -1,8 +1,10 @@
-generated=2026-06-30T23:51:37
+generated=2026-06-30T23:55:59
 status=BLOCKED_PC_STATIC_IP_NOT_CONFIGURED
 target=192.168.10.2:5001
 current_preflight=PC Ethernet lacks 192.168.10.1/24 static direct IP
 static_direct_preflight_summary=reports/n03_static_direct_network_preflight_current.summary.txt
 safe_wrapper_summary=reports/n03_network_first_acceptance_safe_20260630_234410.summary.txt
 pc_expected_static_ip_present=0
+apply_dry_run_command=New-NetIPAddress -InterfaceAlias "以太网" -IPAddress 192.168.10.1 -PrefixLength 24 -SkipAsSource $false
+firewall_dry_run_command=New-NetFirewallRule -DisplayName RF_COMM_TCP_5001_N03 -Direction Inbound -Protocol TCP -LocalPort 5001 -Action Allow
 real_tcp_connect_pass=0
