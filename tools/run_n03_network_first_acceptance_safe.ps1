@@ -290,7 +290,7 @@ if (-not $SkipStaticDirectPreflight) {
         [string]([Math]::Max(1000, [int]([Math]::Max($TimeoutSeconds, 1.0) * 1000.0)))
     ) -LogPath $staticLog -ErrPath $staticErr -TimeoutSecondsForStep ([int]([Math]::Max($TimeoutSeconds, 1.0) + 20))
     $staticCombined = $staticResult.Stdout + "`n" + $staticResult.Stderr
-    foreach ($line in ($staticCombined -split "`r?`n" | Where-Object { $_ -match "PC_|TCP_|N03_STATIC_DIRECT|RECOMMENDED_|APPLY_|FIREWALL_|SELECTED_ADAPTER" } | Select-Object -Last 80)) {
+    foreach ($line in ($staticCombined -split "`r?`n" | Where-Object { $_ -match "PC_|TCP_|N03_STATIC_DIRECT|RECOMMENDED_|ELEVATED_|APPLY_|FIREWALL_|ADMIN_|IS_ADMIN|SELECTED_ADAPTER" } | Select-Object -Last 100)) {
         Write-SummaryLine "STATIC_PREFLIGHT_MATCH $line"
     }
     $staticBlockers = @(Get-MarkerValues -Text $staticCombined -Key "N03_STATIC_DIRECT_NETWORK_BLOCKER")
@@ -305,8 +305,10 @@ if (-not $SkipStaticDirectPreflight) {
     Add-MatrixRow -Item "N03-1_pc_static_direct_preflight" -Status $staticStatus -Evidence $staticLog -Note "Read-only PC Ethernet static direct preflight."
     $recommendedApply = (Get-MarkerValues -Text $staticCombined -Key "RECOMMENDED_APPLY_COMMAND" | Select-Object -First 1)
     $recommendedFirewall = (Get-MarkerValues -Text $staticCombined -Key "RECOMMENDED_FIREWALL_COMMAND" | Select-Object -First 1)
+    $elevatedApply = (Get-MarkerValues -Text $staticCombined -Key "ELEVATED_APPLY_COMMAND" | Select-Object -First 1)
     if ($recommendedApply) { Write-SummaryLine "N03_RECOMMENDED_STATIC_IP_COMMAND=$recommendedApply" }
     if ($recommendedFirewall) { Write-SummaryLine "N03_RECOMMENDED_FIREWALL_COMMAND=$recommendedFirewall" }
+    if ($elevatedApply) { Write-SummaryLine "N03_ELEVATED_STATIC_DIRECT_SETUP_COMMAND=$elevatedApply" }
     if ($staticBlockers -contains "pc_missing_expected_static_ip") {
         Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=0"
         Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1"
@@ -325,6 +327,7 @@ if (-not $SkipStaticDirectPreflight) {
             "- Target: ${TargetHost}:$Port",
             "- Recommended static IP command: $recommendedApply",
             "- Recommended firewall command: $recommendedFirewall",
+            "- Elevated setup command: $elevatedApply",
             "- Summary log: $summaryLog",
             "- Matrix CSV: $matrixCsv",
             "- Log dir: $logDir"

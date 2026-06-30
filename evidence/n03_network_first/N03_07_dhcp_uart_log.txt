@@ -1,2 +1,2 @@
-generated=2026-06-30T23:59:53
+generated=2026-07-01T00:07:28
 status=DEFERRED_NO_PC_DHCP_SERVER

@@ -85,6 +85,19 @@ function Is-EthernetCandidate {
     return ($joined -match "ethernet|realtek|gbe|2\.5gbe|lan")
 }
 
+function Test-IsAdministrator {
+    $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Quote-CommandArg {
+    param([string]$Value)
+    if ($Value -match "[\s`"']") {
+        return "'" + ($Value -replace "'", "''") + "'"
+    }
+    return $Value
+}
+
 "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding utf8
 Write-SummaryLine "REPO_ROOT=$repoRoot"
 Write-SummaryLine "INTERFACE_ALIAS_ARG=$InterfaceAlias"
@@ -100,6 +113,8 @@ Write-SummaryLine "NO_FPGA_PROGRAMMING=1"
 Write-SummaryLine "NO_UART_WRITE=1"
 Write-SummaryLine "NO_TFDU_DRIVE=1"
 Write-SummaryLine "NO_TCP_PAYLOAD=1"
+$isAdmin = Test-IsAdministrator
+Write-SummaryLine "IS_ADMIN=$([int]$isAdmin)"
 
 $adapters = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue)
 $ethernet = @($adapters | Where-Object { Is-EthernetCandidate $_ })
@@ -151,6 +166,36 @@ if (-not $expectedIpPresent) {
     Write-SummaryLine "RECOMMENDED_APPLY_COMMAND=New-NetIPAddress -InterfaceAlias `"$($selected.Name)`" -IPAddress $ExpectedPcIp -PrefixLength $PrefixLength -SkipAsSource `$false"
 }
 Write-SummaryLine "RECOMMENDED_FIREWALL_COMMAND=New-NetFirewallRule -DisplayName RF_COMM_TCP_5001_N03 -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow"
+$elevatedApplyArgs = @(
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    $MyInvocation.MyCommand.Path,
+    "-InterfaceAlias",
+    $selected.Name,
+    "-ExpectedPcIp",
+    $ExpectedPcIp,
+    "-PrefixLength",
+    [string]$PrefixLength,
+    "-TargetHost",
+    $TargetHost,
+    "-Port",
+    [string]$Port,
+    "-TimeoutMs",
+    [string]$TimeoutMs,
+    "-Apply",
+    "-AddFirewallRule"
+)
+$elevatedApplyCommand = "powershell.exe " + (($elevatedApplyArgs | ForEach-Object { Quote-CommandArg $_ }) -join " ")
+Write-SummaryLine "ELEVATED_APPLY_COMMAND=$elevatedApplyCommand"
+Write-SummaryLine "ELEVATED_APPLY_COMMAND_NOTE=run_from_administrator_powershell"
+if (-not $isAdmin -and -not $expectedIpPresent) {
+    Write-SummaryLine "ADMIN_REQUIRED_TO_APPLY=1"
+    Write-SummaryLine "N03_STATIC_DIRECT_NETWORK_NEXT_ACTION=run_elevated_apply_command"
+} else {
+    Write-SummaryLine "ADMIN_REQUIRED_TO_APPLY=0"
+}
 
 $applyAttempted = $false
 $applySucceeded = $false
@@ -245,11 +290,14 @@ $payload = [ordered]@{
         pc_expected_static_ip_present = [bool]$expectedIpPresent
         pc_target_subnet_route_ready = [bool]$targetSubnetReady
         tcp_quick_connect_ok = [bool]$tcpQuick
+        is_admin = [bool]$isAdmin
+        admin_required_to_apply = [bool]((-not $isAdmin) -and (-not $expectedIpPresent))
         no_fpga_programming = $true
         no_uart_write = $true
         no_tfdu_drive = $true
         no_tcp_payload = $true
     }
+    elevated_apply_command = $elevatedApplyCommand
 }
 $payload | ConvertTo-Json -Depth 6 | Out-File -LiteralPath $jsonReport -Encoding utf8
 
@@ -266,9 +314,11 @@ $md = @(
     "- Adapter status: $($selected.Status)",
     "- Expected PC IP: $ExpectedPcIp/$PrefixLength",
     "- Expected IP present: $expectedIpPresent",
+    "- Current shell administrator: $isAdmin",
     "- Target TCP: ${TargetHost}:$Port",
     "- TCP quick connect: $tcpQuick",
     "- Blockers: $(if ($blockers.Count) { $blockers -join ', ' } else { 'none' })",
+    "- Elevated apply command: $elevatedApplyCommand",
     "- Summary log: $summaryLog",
     "- JSON report: $jsonReport"
 )

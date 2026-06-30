@@ -1,8 +1,8 @@
-generated=2026-06-30T23:59:53
+generated=2026-07-01T00:07:28
 expected_DHCP_TIMEOUT=1
 expected_STATIC_FALLBACK_IP=192.168.10.2
 real_uart_transcript_present=0
-uart_summary=reports/ps_uart_boot_probe_20260630_235401.summary.txt
+uart_summary=reports/ps_uart_boot_probe_20260701_000400.summary.txt
 uart_probe_verdict=INCONCLUSIVE_NO_UART_TEXT
 uart_log_bytes=0
 uart_dhcp_static_fallback_seen=0

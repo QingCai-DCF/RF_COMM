@@ -221,8 +221,15 @@ def main() -> int:
     pc_static_ip_ok = marker(static_net_text, "PC_EXPECTED_STATIC_IP_PRESENT=1")
     pc_ethernet_up = marker(static_net_text, "PC_ETHERNET_LINK_UP=1")
     static_net_pass = marker(static_net_text, "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_PASS=1")
-    static_apply_command = marker_value(static_net_text, "APPLY_DRY_RUN_COMMAND")
-    firewall_command = marker_value(static_net_text, "FIREWALL_DRY_RUN_COMMAND")
+    static_apply_command = marker_value(static_net_text, "APPLY_DRY_RUN_COMMAND") or marker_value(
+        static_net_text, "RECOMMENDED_APPLY_COMMAND"
+    )
+    firewall_command = marker_value(static_net_text, "FIREWALL_DRY_RUN_COMMAND") or marker_value(
+        static_net_text, "RECOMMENDED_FIREWALL_COMMAND"
+    )
+    elevated_apply_command = marker_value(static_net_text, "ELEVATED_APPLY_COMMAND")
+    is_admin = marker_value(static_net_text, "IS_ADMIN")
+    admin_required = marker_value(static_net_text, "ADMIN_REQUIRED_TO_APPLY")
     uart_verdict = marker_value(uart_text, "UART_PROBE_VERDICT")
     uart_log_bytes_text = marker_value(uart_text, "UART_LOG_BYTES")
     try:
@@ -377,13 +384,13 @@ def main() -> int:
         report_template(
             "N03-1 Static IP Direct Smoke",
             rows[1].status,
-            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Dry-run setup command: `{static_apply_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
+            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Current shell admin={is_admin or 'unknown'}. Recommended static IP command: `{static_apply_command or 'not captured'}`. Elevated setup command: `{elevated_apply_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
             rows,
         ),
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\napply_dry_run_command={static_apply_command}\nfirewall_dry_run_command={firewall_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
