@@ -1,0 +1,82 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak
+*~
+.vscode/
+.idea/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Xilinx/Vivado transient state
+.Xil/
+.vivado_ip_cache/
+.vivado_ip_probe/
+.xvlog_check_*/
+*.jou
+*.pb
+*.str
+*.wdb
+*.wcfg
+xsim.dir/
+sim_work/
+sim_work_*/
+sim_work_probe_root/
+
+# Vivado generated project outputs
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.cache/
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.gen/
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.hw/
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.ip_user_files/
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.runs/
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.sim/
+TFDU_VFIR_Client_Array/TFDU_VFIR_Client.tmp/
+TFDU_VFIR_Client_Array/direct_build*/
+IPs/*/*.cache/
+IPs/*/*.gen/
+IPs/*/*.hw/
+IPs/*/*.ip_user_files/
+IPs/*/*.runs/
+IPs/*/*.sim/
+IPs/**/.sim_*/
+IPs/**/*.sim/
+IPs/**/xsim/
+
+# Vitis/generated software workspaces and boot images
+software/_boot*/
+software/_vitis_ws*/
+software/**/Debug/
+software/**/Release/
+software/**/.Xil/
+software/**/.metadata/
+software/**/.analytics/
+
+# Hardware/programming artifacts generated from source
+*.bit
+*.bin
+*.elf
+*.dcp
+*.ltx
+*.mmi
+*.xsa
+*.o
+*.d
+
+# Generated logs and crash dumps
+vivado*.log
+xelab.log
+xvlog.log
+hs_err_pid*.dmp
+hs_err_pid*.log
+reports/*.out.log
+reports/*.err.log
+software/host_client/logs/*.log
+
+# Packaged/generated deliverables
+*.zip
+*.7z
+*.rar
