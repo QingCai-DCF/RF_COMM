@@ -171,6 +171,7 @@ The same checks can be run through the acceptance wrapper:
 
 ```powershell
 .\software\host_client\run_acceptance.ps1 -Mode smoke -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_commands -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_memory_echo -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_pspl_synth -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_negative -TargetHost 192.168.10.2

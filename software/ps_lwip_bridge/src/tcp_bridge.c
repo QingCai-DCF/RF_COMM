@@ -123,6 +123,44 @@ static int bridge_mode_is_supported(uint32_t mode)
 	       mode == RF_MODE_PSPL_SYNTH_LOOPBACK;
 }
 
+static int bridge_set_network_mode(uint32_t mode)
+{
+	int status;
+
+	if (!bridge_mode_is_supported(mode)) {
+		return XST_FAILURE;
+	}
+
+	status = ir_hw_configure(g_bridge.hw, RF_CONFIG_ENABLE, 0u, 0u, 0u, 0u);
+	if (status != XST_SUCCESS) {
+		return status;
+	}
+	g_bridge.mode = mode;
+	return XST_SUCCESS;
+}
+
+static int parse_positive_decimal(const char *text, uint32_t *value)
+{
+	uint32_t accum = 0u;
+	const char *cursor = text;
+
+	if (text == NULL || value == NULL || *text == '\0') {
+		return 0;
+	}
+	while (*cursor != '\0') {
+		if (*cursor < '0' || *cursor > '9') {
+			return 0;
+		}
+		accum = (accum * 10u) + (uint32_t)(*cursor - '0');
+		cursor++;
+	}
+	if (accum == 0u || accum > RF_PROTO_MAX_PAYLOAD) {
+		return 0;
+	}
+	*value = accum;
+	return 1;
+}
+
 static void bridge_send_status(uint16_t seq)
 {
 	ir_hw_status_t status;
@@ -147,6 +185,101 @@ static void bridge_send_status(uint16_t seq)
 	rf_put_u32_le(&payload[60], status.rx_lane_err_count);
 
 	(void)bridge_send_frame(RF_FRAME_STATUS_RSP, seq, payload, sizeof(payload));
+}
+
+static void bridge_handle_command(uint16_t seq, const uint8_t *payload, size_t length)
+{
+	char command[RF_PROTO_MAX_PAYLOAD + 1u];
+	const char *text;
+	uint32_t payload_bytes;
+	int status;
+
+	if (length == 0u || length > RF_PROTO_MAX_PAYLOAD) {
+		bridge_send_text(RF_FRAME_ERROR, seq, "ERR_BAD_ARG");
+		return;
+	}
+
+	memcpy(command, payload, length);
+	command[length] = '\0';
+	while (length > 0u &&
+	       (command[length - 1u] == '\r' ||
+	        command[length - 1u] == '\n' ||
+	        command[length - 1u] == ' ' ||
+	        command[length - 1u] == '\t')) {
+		command[length - 1u] = '\0';
+		length--;
+	}
+	text = command;
+	while (*text == ' ' || *text == '\t') {
+		text++;
+	}
+	if (*text == '\0') {
+		bridge_send_text(RF_FRAME_ERROR, seq, "ERR_BAD_ARG");
+		return;
+	}
+
+	if (strcmp(text, "PING") == 0) {
+		bridge_send_text(RF_FRAME_ACK, seq, "PONG");
+	} else if (strcmp(text, "GET_VERSION") == 0) {
+		bridge_send_text(RF_FRAME_ACK, seq, "VERSION 1");
+	} else if (strcmp(text, "GET_BUILD_ID") == 0 ||
+	           strcmp(text, "READ build_id") == 0) {
+		bridge_send_text(RF_FRAME_ACK, seq, "BUILD_ID rf_comm_ps_bridge_n03_network_first");
+	} else if (strcmp(text, "STATUS") == 0 ||
+	           strcmp(text, "READ counters") == 0 ||
+	           strcmp(text, "READ pspl_status") == 0) {
+		bridge_send_status(seq);
+	} else if (strcmp(text, "READ network_status") == 0) {
+		bridge_send_text(RF_FRAME_ACK, seq, "network_status tcp_connected=1 port=5001");
+	} else if (strncmp(text, "CONFIG payload_bytes ", 21u) == 0) {
+		if (!parse_positive_decimal(text + 21u, &payload_bytes)) {
+			bridge_send_text(RF_FRAME_ERROR, seq, "ERR_BAD_ARG");
+			return;
+		}
+		bridge_send_text(RF_FRAME_ACK, seq, "payload_bytes_accepted");
+	} else if (strcmp(text, "CONFIG mode network_memory_echo") == 0) {
+		status = bridge_set_network_mode(RF_MODE_NETWORK_MEMORY_ECHO);
+		if (status == XST_SUCCESS) {
+			bridge_send_text(RF_FRAME_ACK, seq, bridge_mode_name(g_bridge.mode));
+		} else {
+			bridge_send_text(RF_FRAME_ERROR, seq, ir_hw_last_error(g_bridge.hw));
+		}
+	} else if (strcmp(text, "CONFIG mode pspl_synth_loopback") == 0) {
+		status = bridge_set_network_mode(RF_MODE_PSPL_SYNTH_LOOPBACK);
+		if (status == XST_SUCCESS) {
+			bridge_send_text(RF_FRAME_ACK, seq, bridge_mode_name(g_bridge.mode));
+		} else {
+			bridge_send_text(RF_FRAME_ERROR, seq, ir_hw_last_error(g_bridge.hw));
+		}
+	} else if (strcmp(text, "CONFIG mode ir_physical") == 0 ||
+	           strcmp(text, "START ir_tx") == 0 ||
+	           strcmp(text, "START 2lane") == 0 ||
+	           strcmp(text, "START ir_physical") == 0) {
+		bridge_send_text(RF_FRAME_ERROR, seq,
+		                 "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE");
+	} else if (strcmp(text, "CLEAR") == 0 ||
+	           strcmp(text, "CLEAR counters") == 0 ||
+	           strcmp(text, "CLEAR sticky") == 0) {
+		ir_hw_clear_sticky(g_bridge.hw);
+		bridge_send_text(RF_FRAME_ACK, seq, "cleared");
+	} else if (strcmp(text, "START") == 0) {
+		status = bridge_set_network_mode(g_bridge.mode);
+		if (status == XST_SUCCESS) {
+			bridge_send_text(RF_FRAME_ACK, seq, "started_network_mode");
+		} else {
+			bridge_send_text(RF_FRAME_ERROR, seq, ir_hw_last_error(g_bridge.hw));
+		}
+	} else if (strcmp(text, "STOP") == 0) {
+		(void)ir_hw_configure(g_bridge.hw, RF_CONFIG_ENABLE, 0u, 0u, 0u, 0u);
+		ir_hw_disable_test_mode(g_bridge.hw);
+		bridge_send_text(RF_FRAME_ACK, seq, "stopped");
+	} else if (strcmp(text, "SHUTDOWN_SAFE") == 0) {
+		(void)ir_hw_configure(g_bridge.hw, RF_CONFIG_ENABLE, 0u, 0u, 0u, 0u);
+		ir_hw_disable_test_mode(g_bridge.hw);
+		bridge_send_text(RF_FRAME_ACK, seq, "shutdown_safe");
+	} else {
+		bridge_send_text(RF_FRAME_ERROR, seq, "ERR_UNKNOWN_CMD");
+	}
 }
 
 static void bridge_handle_frame(uint8_t type, uint16_t seq,
@@ -218,6 +351,9 @@ static void bridge_handle_frame(uint8_t type, uint16_t seq,
 		}
 		g_bridge.mode = requested_mode;
 		bridge_send_text(RF_FRAME_ACK, seq, bridge_mode_name(g_bridge.mode));
+		break;
+	case RF_FRAME_COMMAND:
+		bridge_handle_command(seq, payload, length);
 		break;
 	case RF_FRAME_TX_DATA:
 		if (length == 0u) {

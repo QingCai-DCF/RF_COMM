@@ -89,7 +89,7 @@ Write-SummaryLine "REPEAT=$Repeat"
 Write-SummaryLine "PAYLOAD_SIZE=$PayloadSize"
 Write-SummaryLine "RECONNECT_CYCLES=$ReconnectCycles"
 Write-SummaryLine "TIMEOUT_SECONDS=$TimeoutSeconds"
-Write-SummaryLine "N03_OFFLINE_MODES=memory_echo;pspl_synth;ir_physical_deferred_negative"
+Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative"
 
 $overall = 0
 
@@ -120,6 +120,19 @@ $acceptanceExit = Invoke-Step -Name "host_offline_mock_acceptance" -FilePath "po
 ) -LogPath $acceptanceLog -TimeoutSecondsForStep 120
 if ($acceptanceExit -ne 0 -and $overall -eq 0) { $overall = $acceptanceExit }
 
+if (Test-Path -LiteralPath $acceptanceLog) {
+    foreach ($marker in @(
+        "N03_TCP_PROTOCOL_COMMAND_PASS=1",
+        "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1",
+        "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1",
+        "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1"
+    )) {
+        if (Select-String -LiteralPath $acceptanceLog -Pattern $marker -SimpleMatch -Quiet) {
+            Write-SummaryLine "N03_ACCEPTANCE_MARKER $marker"
+        }
+    }
+}
+
 if (Test-Path -LiteralPath $acceptanceDir) {
     foreach ($csv in (Get-ChildItem -LiteralPath $acceptanceDir -Filter "*.csv" -ErrorAction SilentlyContinue)) {
         Write-SummaryLine "ACCEPTANCE_CSV=$($csv.FullName)"
@@ -130,7 +143,7 @@ if (Test-Path -LiteralPath $acceptanceDir) {
 }
 
 if ($overall -eq 0) {
-    Write-SummaryLine "PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 n03_modes=1"
+    Write-SummaryLine "PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 n03_commands=1 n03_modes=1"
 } else {
     Write-SummaryLine "PS_PC_OFFLINE_GATES_FAIL exit=$overall"
 }

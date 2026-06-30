@@ -30,6 +30,7 @@ FRAME_TX_DATA = 0x10
 FRAME_RX_DATA = 0x11
 FRAME_CLEAR = 0x20
 FRAME_CONFIG = 0x21
+FRAME_COMMAND = 0x22
 
 CONFIG_ENABLE = 1 << 0
 CONFIG_SESSION = 1 << 1
@@ -93,6 +94,7 @@ TYPE_NAMES = {
     FRAME_RX_DATA: "RX_DATA",
     FRAME_CLEAR: "CLEAR",
     FRAME_CONFIG: "CONFIG",
+    FRAME_COMMAND: "COMMAND",
 }
 
 
@@ -723,6 +725,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--config-mode", type=parse_mode, help="set N03 bridge mode: network_memory_echo, pspl_synth_loopback, or ir_physical")
     parser.add_argument("--send-hex", type=parse_hex)
     parser.add_argument("--send-text")
+    parser.add_argument("--command", action="append", default=[], help="send an ASCII N03 command frame, for example PING or READ counters")
     parser.add_argument("--listen", action="store_true")
     parser.add_argument("--repeat", type=int, default=0, help="send this many generated TX_DATA packets")
     parser.add_argument("--duration", type=float, help="send generated TX_DATA packets for this many seconds")
@@ -805,6 +808,8 @@ def main(argv: list[str]) -> int:
         send_tracked(client, stats, FRAME_TX_DATA, args.send_hex)
     if args.send_text is not None:
         send_tracked(client, stats, FRAME_TX_DATA, args.send_text.encode("utf-8"))
+    for command in args.command:
+        send_tracked(client, stats, FRAME_COMMAND, command.encode("ascii"))
     repeated = args.repeat > 0 or args.duration is not None
     sent = 0
     sent_bytes = 0
@@ -816,7 +821,15 @@ def main(argv: list[str]) -> int:
             args.payload_pattern
         )
 
-    one_shot = any((args.hello, args.status, args.clear, config_requested, args.send_hex is not None, args.send_text is not None))
+    one_shot = any((
+        args.hello,
+        args.status,
+        args.clear,
+        config_requested,
+        args.send_hex is not None,
+        args.send_text is not None,
+        bool(args.command),
+    ))
     try:
         if args.listen or one_shot or repeated:
             while client.running:

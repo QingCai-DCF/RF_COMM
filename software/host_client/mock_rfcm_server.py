@@ -207,6 +207,61 @@ class MockRFCMServer:
         )
         self._send(sock, rf.FRAME_ACK, frame.seq, rf.MODE_LABELS.get(self.mode, "unknown").encode("ascii"))
 
+    def _handle_command(self, sock: socket.socket, frame: rf.Frame) -> None:
+        try:
+            command = frame.payload.decode("ascii").strip()
+        except UnicodeDecodeError:
+            self._send(sock, rf.FRAME_ERROR, frame.seq, b"ERR_BAD_ARG")
+            return
+
+        if not command:
+            self._send(sock, rf.FRAME_ERROR, frame.seq, b"ERR_BAD_ARG")
+        elif command == "PING":
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"PONG")
+        elif command == "GET_VERSION":
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"VERSION 1")
+        elif command in ("GET_BUILD_ID", "READ build_id"):
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"BUILD_ID rf_comm_ps_bridge_mock")
+        elif command in ("STATUS", "READ counters", "READ pspl_status"):
+            self._send(sock, rf.FRAME_STATUS_RSP, frame.seq, self._status_payload())
+        elif command == "READ network_status":
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"network_status tcp_connected=1 port=5001")
+        elif command.startswith("CONFIG payload_bytes "):
+            value = command.removeprefix("CONFIG payload_bytes ")
+            if not value.isdigit() or int(value) <= 0 or int(value) > rf.MAX_FRAME_PAYLOAD:
+                self._send(sock, rf.FRAME_ERROR, frame.seq, b"ERR_BAD_ARG")
+            else:
+                self._send(sock, rf.FRAME_ACK, frame.seq, b"payload_bytes_accepted")
+        elif command == "CONFIG mode network_memory_echo":
+            self.mode = rf.MODE_NETWORK_MEMORY_ECHO
+            self.config_enable = 0
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"network_memory_echo")
+        elif command == "CONFIG mode pspl_synth_loopback":
+            self.mode = rf.MODE_PSPL_SYNTH_LOOPBACK
+            self.config_enable = 0
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"pspl_synth_loopback")
+        elif command in (
+            "CONFIG mode ir_physical",
+            "START ir_tx",
+            "START 2lane",
+            "START ir_physical",
+        ):
+            self._send(sock, rf.FRAME_ERROR, frame.seq, b"ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE")
+        elif command in ("CLEAR", "CLEAR counters", "CLEAR sticky"):
+            self.tx_payloads.clear()
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"cleared")
+        elif command == "START":
+            self.config_enable = 0
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"started_network_mode")
+        elif command == "STOP":
+            self.config_enable = 0
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"stopped")
+        elif command == "SHUTDOWN_SAFE":
+            self.config_enable = 0
+            self._send(sock, rf.FRAME_ACK, frame.seq, b"shutdown_safe")
+        else:
+            self._send(sock, rf.FRAME_ERROR, frame.seq, b"ERR_UNKNOWN_CMD")
+
     def _handle_client(self, sock: socket.socket) -> None:
         self._send(sock, rf.FRAME_ACK, 0, b"connected")
         while not self.stop_event.is_set():
@@ -225,6 +280,8 @@ class MockRFCMServer:
                 self._send(sock, rf.FRAME_ACK, frame.seq, b"cleared")
             elif frame.frame_type == rf.FRAME_CONFIG:
                 self._handle_config(sock, frame)
+            elif frame.frame_type == rf.FRAME_COMMAND:
+                self._handle_command(sock, frame)
             elif frame.frame_type == rf.FRAME_TX_DATA:
                 self.tx_payloads.append(frame.payload)
                 self.log(f"TX_DATA seq={frame.seq} len={len(frame.payload)}")

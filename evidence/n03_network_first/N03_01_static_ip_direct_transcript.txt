@@ -1,0 +1,5 @@
+generated=2026-06-30T23:32:21
+status=REAL_BOARD_PENDING
+target=192.168.10.2:5001
+current_preflight=192.168.10.2:5001 not reachable in current preflight
+real_tcp_connect_pass=0

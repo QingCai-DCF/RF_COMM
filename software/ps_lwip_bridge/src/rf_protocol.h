@@ -20,6 +20,7 @@
 #define RF_FRAME_RX_DATA         0x11u
 #define RF_FRAME_CLEAR           0x20u
 #define RF_FRAME_CONFIG          0x21u
+#define RF_FRAME_COMMAND         0x22u
 
 #define RF_CONFIG_ENABLE         (1u << 0)
 #define RF_CONFIG_SESSION        (1u << 1)

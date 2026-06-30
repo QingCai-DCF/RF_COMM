@@ -132,6 +132,7 @@ Frame types:
 - `0x11` RX_DATA, IR link to PC
 - `0x20` CLEAR sticky status
 - `0x21` CONFIG, update IR link configuration
+- `0x22` COMMAND, ASCII N03 command surface
 
 CONFIG payload:
 
@@ -157,6 +158,14 @@ paths force the physical IR enable bit off while preserving session/lane
 observability. `ir_physical` is intentionally rejected with
 `ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE` until an explicit IR physical phase is
 reopened.
+
+The `COMMAND` frame carries an ASCII command. Current N03 commands include
+`PING`, `GET_VERSION`, `GET_BUILD_ID`, `READ build_id`, `READ counters`,
+`READ network_status`, `READ pspl_status`, `CONFIG payload_bytes <N>`,
+`CONFIG mode network_memory_echo`, `CONFIG mode pspl_synth_loopback`,
+`CLEAR counters`, `CLEAR sticky`, `START`, `STOP`, and `SHUTDOWN_SAFE`.
+IR physical commands such as `CONFIG mode ir_physical`, `START ir_tx`, and
+`START 2lane` return `ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE`.
 
 STATUS_RSP payload:
 
@@ -213,9 +222,10 @@ From the repository root:
 
 ```powershell
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --hello --status --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --command PING --command GET_VERSION --command GET_BUILD_ID --require-clean
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-session 0x1234 --config-lane-mask 0x1 --config-enable 0 --config-mode network_memory_echo --status --require-clean
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-mode pspl_synth_loopback --status --require-clean
-python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-mode ir_physical --expect-error ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --command 'START ir_tx' --expect-error ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --clear
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --send-text 'rf_comm_smoke' --listen
 ```
@@ -246,6 +256,7 @@ For repeatable board-level evidence, use the wrapper:
 
 ```powershell
 .\software\host_client\run_acceptance.ps1 -Mode smoke -TargetHost 192.168.10.2
+.\software\host_client\run_acceptance.ps1 -Mode n03_commands -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_memory_echo -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_pspl_synth -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_negative -TargetHost 192.168.10.2

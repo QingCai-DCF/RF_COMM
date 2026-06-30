@@ -1,0 +1,6 @@
+case,expected,current_status
+START ir_tx,ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE,PASS_OFFLINE
+CONFIG mode ir_physical,ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE,PASS_OFFLINE
+UNKNOWN_CMD,ERR_UNKNOWN_CMD,PASS_OFFLINE
+malformed frame header,ERROR/bad_magic or disconnect-safe behavior,SOURCE_TESTED_OFFLINE
+wrong length,ERROR/payload_too_large or parser-safe behavior,SOURCE_TESTED_OFFLINE

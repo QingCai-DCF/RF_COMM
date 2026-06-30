@@ -1,6 +1,6 @@
 # N03-0 Scope Switch Note
 
-Generated: 2026-06-30 23:20 +08:00
+Generated: 2026-06-30 23:32 +08:00
 
 Stage: `N03_NETWORK_FIRST_STATIC_DIRECT_BASELINE`
 
@@ -55,18 +55,18 @@ Main physical rows from the latest P7 report:
 | `TFDU_VFIR_Client_Array/design_shiboqi_wrapper.xsa` | `AE674988CDC4662E63B85320EC48D629609138D42D0ED97A79A18F16FEF3228B` |
 | `software/_vitis_ws/rf_comm_ps_bridge/Debug/rf_comm_ps_bridge.elf` | `0BC5F1C1CAF19CA9B6E8E037D95AB202218290C9C29FE82EE05F45ED30E38D79` |
 | `software/_vitis_ws_ps_ps_loopback/rf_comm_ps_ps_loopback/Debug/rf_comm_ps_ps_loopback.elf` | `76B335E06C611B50FAC8B4818CEBEC44CC8F390345C93D1F2D11E4D6F56C0392` |
-| Git source base at generation | `2403e7ff8ee7307cd451528ed52272df92458265` |
+| Git source base before this package update | `e8384871bb1f171a28e1c6908ee5e9f72b34fb05` |
 
 N03 source file hashes at generation:
 
 | File | SHA-256 |
 | --- | --- |
 | `software/ps_lwip_bridge/src/main.c` | `0D44475D029A46D52F13E949A20B38EAA89FB320050BB397930D26C2C54FB358` |
-| `software/ps_lwip_bridge/src/tcp_bridge.c` | `3026F1C248D0622B25F964DC698D1AF3C4E51EAFAF4A3F490AB2BEA252F88341` |
-| `software/ps_lwip_bridge/src/rf_protocol.h` | `893B24FB2A204E9B11CE379EF74882CE718BD3B108E37C1B34F1885C8169B693` |
-| `software/host_client/rf_comm_client.py` | `4C2F778520B30668F85FA754F2A275073CFAFCC702F1A21524BFA797304C9E38` |
-| `software/host_client/run_acceptance.ps1` | `23E7F1E918CB974F3288D9AD9BAFA89135EED23C93FC1B553FFE90B40C5A8345` |
-| `tools/run_ps_pc_offline_gates.ps1` | `63E18CE01D93A42933A71B241AEAA18F33593C4B2CA7DAE313D9FFF70F25BC5D` |
+| `software/ps_lwip_bridge/src/tcp_bridge.c` | `8E6A28A6C86FBD578FD268BA17EEB0758D074EE4549F46863468E5DD1ABF6FE8` |
+| `software/ps_lwip_bridge/src/rf_protocol.h` | `0D3F13AF4A99A4D99A46EC5184C112DED4032EE88035B7C0FA4B319660B831C0` |
+| `software/host_client/rf_comm_client.py` | `369F71E23D3C54C90A4170F6C3A688DBB9F7E8622BB152F6E7A5EE0D0DF4BEEA` |
+| `software/host_client/run_acceptance.ps1` | `393E500A57D7EF19FF8F7442965D50EBE31CF0DFE1B09EF2048AA81736B073A9` |
+| `tools/run_ps_pc_offline_gates.ps1` | `FD1DF24F710EFF91DF5708481FAF2A6AC2C42D1BADE8973EEB9D7688D95FFB8A` |
 
 ## N03 Software Baseline Added
 
@@ -75,24 +75,29 @@ N03 source file hashes at generation:
   - `network_memory_echo`
   - `pspl_synth_loopback`
   - `ir_physical` rejected as deferred with `ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE`.
+- TCP bridge protocol also supports an N03 ASCII `COMMAND` frame for safe command coverage:
+  - `PING`, `GET_VERSION`, `GET_BUILD_ID`, `READ ...`, `CONFIG payload_bytes ...`, `CONFIG mode ...`, `CLEAR ...`, `START`, `STOP`, and `SHUTDOWN_SAFE`.
+  - IR physical starts such as `START ir_tx` and `START 2lane` return `ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE`.
 - `software/host_client/run_acceptance.ps1` now exposes:
+  - `-Mode n03_commands`
   - `-Mode n03_memory_echo`
   - `-Mode n03_pspl_synth`
   - `-Mode n03_negative`
-- `-Mode offline_mock` now covers N03 memory echo, PS/PL synthetic loopback, and IR-deferred negative behavior.
+- `-Mode offline_mock` now covers N03 command protocol, memory echo, PS/PL synthetic loopback, and IR-deferred negative behavior.
 
 ## Offline Evidence
 
-Latest N03 offline gate summary: `reports/ps_pc_offline_gates_20260630_231423.summary.txt`
+Latest N03 offline gate summary: `reports/ps_pc_offline_gates_20260630_233111.summary.txt`
 
 ```text
-PS_BRIDGE_STATIC_CHECKS_PASS checks=72 dhcp=1 tcp=1 protocol=1 reconnect=1
-RF_COMM_PROTOCOL_CONTRACT overall=PASS checks=30 status_fields=16 frame_types=9 config_bits=5 modes=3
-Ran 24 tests OK
+PS_BRIDGE_STATIC_CHECKS_PASS checks=80 dhcp=1 tcp=1 protocol=1 reconnect=1
+RF_COMM_PROTOCOL_CONTRACT overall=PASS checks=31 status_fields=16 frame_types=10 config_bits=5 modes=3
+Ran 26 tests OK
+N03_TCP_PROTOCOL_COMMAND_PASS=1
 N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1
 N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1
 N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1
-PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 n03_modes=1
+PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 n03_commands=1 n03_modes=1
 ```
 
 This is source/offline/mock evidence only. It does not replace a real board Ethernet run.

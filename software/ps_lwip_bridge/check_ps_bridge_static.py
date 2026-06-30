@@ -279,9 +279,15 @@ def main() -> int:
         require_re(checks, "send_uses_copy_and_output", bridge_flat, r"tcp_write\(.*TCP_WRITE_FLAG_COPY\).*tcp_output\(g_bridge\.client_pcb\)")
         require_re(checks, "send_checks_tcp_sndbuf", bridge_c, r"tcp_sndbuf\s*\(\s*g_bridge\.client_pcb\s*\)\s*<\s*\(RF_PROTO_HEADER_BYTES \+ length\)")
 
-        for name in ("HELLO", "STATUS_REQ", "CLEAR", "CONFIG", "TX_DATA"):
+        for name in ("HELLO", "STATUS_REQ", "CLEAR", "CONFIG", "COMMAND", "TX_DATA"):
             require_re(checks, f"handles_{name.lower()}", bridge_c, rf"case\s+RF_FRAME_{name}\s*:")
         require_re(checks, "status_response_64_bytes", bridge_flat, r"uint8_t payload\[64\].*bridge_send_frame\(RF_FRAME_STATUS_RSP, seq, payload, sizeof\(payload\)\)")
+        require_re(checks, "command_ping_pong", bridge_flat, r'PING.*PONG')
+        require_re(checks, "command_get_version", bridge_flat, r'GET_VERSION.*VERSION 1')
+        require_re(checks, "command_read_status", bridge_flat, r'READ counters.*bridge_send_status')
+        require_re(checks, "command_payload_bytes", bridge_flat, r'CONFIG payload_bytes .*payload_bytes_accepted')
+        require_re(checks, "command_ir_start_deferred", bridge_flat, r'START ir_tx.*ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE')
+        require_re(checks, "command_unknown_error", bridge_flat, r'ERR_UNKNOWN_CMD')
         require_re(checks, "config_rejects_bad_payload", bridge_flat, r'length != 8u && length != 12u && length != 16u.*bad_config_payload')
         require_re(checks, "config_requires_rx_mask_extension", bridge_flat, r"RF_CONFIG_RX_LANE_MASK.*length < 12u.*bad_config_payload")
         require_re(checks, "config_requires_mode_extension", bridge_flat, r"RF_CONFIG_MODE.*length < 16u.*bad_config_payload")
@@ -316,6 +322,7 @@ def main() -> int:
             "RX_DATA",
             "CLEAR",
             "CONFIG",
+            "COMMAND",
         ):
             require(
                 checks,

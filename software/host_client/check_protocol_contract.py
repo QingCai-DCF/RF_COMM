@@ -93,6 +93,7 @@ def main() -> int:
         "RX_DATA": rf.FRAME_RX_DATA,
         "CLEAR": rf.FRAME_CLEAR,
         "CONFIG": rf.FRAME_CONFIG,
+        "COMMAND": rf.FRAME_COMMAND,
     }
     config_macros = {
         "ENABLE": rf.CONFIG_ENABLE,

@@ -1,0 +1,4 @@
+case,status,evidence
+offline_mock_reconnect_2x,PASS_OFFLINE,reports/ps_pc_offline_gates_20260630_233111.summary.txt
+real_board_reconnect_20x,REAL_BOARD_PENDING,required by plan
+real_cable_unplug_replug,REAL_BOARD_PENDING,manual hardware step required

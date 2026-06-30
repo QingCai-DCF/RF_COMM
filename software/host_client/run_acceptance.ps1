@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("smoke", "single_lane", "soak_2h", "reconnect", "fdx_partition", "offline_mock", "n03_memory_echo", "n03_pspl_synth", "n03_negative")]
+    [ValidateSet("smoke", "single_lane", "soak_2h", "reconnect", "fdx_partition", "offline_mock", "n03_commands", "n03_memory_echo", "n03_pspl_synth", "n03_negative")]
     [string]$Mode = "smoke",
 
     [string]$TargetHost = "192.168.10.2",
@@ -328,6 +328,28 @@ function Invoke-N03MemoryEcho {
     Write-Host "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1"
 }
 
+function Invoke-N03Commands {
+    Invoke-RFClient ((Base-Args) + @(
+        "--command", "PING",
+        "--command", "GET_VERSION",
+        "--command", "GET_BUILD_ID",
+        "--command", "READ build_id",
+        "--command", "READ counters",
+        "--command", "READ network_status",
+        "--command", "READ pspl_status",
+        "--command", "CONFIG payload_bytes 64",
+        "--command", "CONFIG mode network_memory_echo",
+        "--command", "CONFIG mode pspl_synth_loopback",
+        "--command", "CLEAR counters",
+        "--command", "CLEAR sticky",
+        "--command", "START",
+        "--command", "STOP",
+        "--command", "SHUTDOWN_SAFE",
+        "--status"
+    ) + (Clean-Args))
+    Write-Host "N03_TCP_PROTOCOL_COMMAND_PASS=1"
+}
+
 function Invoke-N03PsplSynth {
     if (-not $providedParams.ContainsKey("Repeat")) {
         $script:Repeat = 32
@@ -345,6 +367,14 @@ function Invoke-N03PsplSynth {
 }
 
 function Invoke-N03Negative {
+    Invoke-RFClient ((Base-Args) + @(
+        "--command", "START ir_tx",
+        "--expect-error", "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE"
+    ))
+    Invoke-RFClient ((Base-Args) + @(
+        "--command", "UNKNOWN_CMD",
+        "--expect-error", "ERR_UNKNOWN_CMD"
+    ))
     Invoke-RFClient ((Base-Args) + @(
         "--config-mode", "ir_physical",
         "--expect-error", "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE"
@@ -399,6 +429,9 @@ switch ($Mode) {
         ) + (Clean-Args))
         Invoke-Traffic -Name "fdx_partition" -DefaultDurationSeconds 600 -DefaultWindow 4
     }
+    "n03_commands" {
+        Invoke-N03Commands
+    }
     "n03_memory_echo" {
         Invoke-N03MemoryEcho
     }
@@ -433,6 +466,7 @@ switch ($Mode) {
                 "--status"
             ) + (Clean-Args))
             Invoke-Traffic -Name "offline_mock_single_lane" -DefaultDurationSeconds 0 -DefaultWindow 1
+            Invoke-N03Commands
             Invoke-N03MemoryEcho
             Invoke-N03PsplSynth
             Invoke-N03Negative
