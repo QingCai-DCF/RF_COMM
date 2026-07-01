@@ -246,8 +246,10 @@ if ($LaunchElevatedApply -and -not $expectedIpPresent) {
 
 $applyAttempted = $false
 $applySucceeded = $false
+$applyRefusedNotAdmin = $false
 $firewallAttempted = $false
 $firewallSucceeded = $false
+$firewallRefusedNotAdmin = $false
 if ($Apply -and -not $expectedIpPresent) {
     $applyAttempted = $true
     if ($InterfaceAlias -eq "") {
@@ -261,6 +263,9 @@ if ($Apply -and -not $expectedIpPresent) {
     }
     if ($DryRun) {
         Write-SummaryLine "APPLY_DRY_RUN_COMMAND=New-NetIPAddress -InterfaceAlias `"$InterfaceAlias`" -IPAddress $ExpectedPcIp -PrefixLength $PrefixLength -SkipAsSource `$false"
+    } elseif (-not $isAdmin) {
+        $applyRefusedNotAdmin = $true
+        Write-SummaryLine "APPLY_REFUSED_NOT_ADMIN=1"
     } else {
         New-NetIPAddress -InterfaceAlias $InterfaceAlias -IPAddress $ExpectedPcIp -PrefixLength $PrefixLength -SkipAsSource $false | Out-Null
         $applySucceeded = $true
@@ -273,10 +278,13 @@ if ($AddFirewallRule) {
     $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
     if ($DryRun) {
         Write-SummaryLine "FIREWALL_DRY_RUN_COMMAND=New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow"
-    } elseif ($null -eq $existingRule) {
-        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
+    } elseif ($null -ne $existingRule) {
         $firewallSucceeded = $true
+    } elseif (-not $isAdmin) {
+        $firewallRefusedNotAdmin = $true
+        Write-SummaryLine "FIREWALL_REFUSED_NOT_ADMIN=1"
     } else {
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
         $firewallSucceeded = $true
     }
 }
@@ -302,6 +310,8 @@ if (-not $isEthernet -or $isWifi) { $blockers.Add("selected_adapter_not_wired_et
 if (-not $linkUp) { $blockers.Add("ethernet_link_not_up") }
 if (-not $expectedIpPresent) { $blockers.Add("pc_missing_expected_static_ip") }
 if (-not $tcpQuick) { $blockers.Add("tcp_target_not_reachable") }
+if ($applyRefusedNotAdmin) { $blockers.Add("apply_requires_admin") }
+if ($firewallRefusedNotAdmin) { $blockers.Add("firewall_requires_admin") }
 
 $preflightPass = ($blockers.Count -eq 0)
 foreach ($reason in $blockers) {
@@ -309,8 +319,10 @@ foreach ($reason in $blockers) {
 }
 Write-SummaryLine "APPLY_ATTEMPTED=$([int]$applyAttempted)"
 Write-SummaryLine "APPLY_SUCCEEDED=$([int]$applySucceeded)"
+Write-SummaryLine "APPLY_REFUSED_NOT_ADMIN=$([int]$applyRefusedNotAdmin)"
 Write-SummaryLine "FIREWALL_ATTEMPTED=$([int]$firewallAttempted)"
 Write-SummaryLine "FIREWALL_SUCCEEDED=$([int]$firewallSucceeded)"
+Write-SummaryLine "FIREWALL_REFUSED_NOT_ADMIN=$([int]$firewallRefusedNotAdmin)"
 Write-SummaryLine "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_PASS=$([int]$preflightPass)"
 Write-SummaryLine "N03_STATIC_DIRECT_NETWORK_PREFLIGHT_END $(Get-Date -Format o)"
 
@@ -339,6 +351,8 @@ $payload = [ordered]@{
         tcp_quick_connect_ok = [bool]$tcpQuick
         is_admin = [bool]$isAdmin
         admin_required_to_apply = [bool]((-not $isAdmin) -and (-not $expectedIpPresent))
+        apply_refused_not_admin = [bool]$applyRefusedNotAdmin
+        firewall_refused_not_admin = [bool]$firewallRefusedNotAdmin
         no_fpga_programming = $true
         no_uart_write = $true
         no_tfdu_drive = $true
