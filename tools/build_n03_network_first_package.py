@@ -151,6 +151,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "tools" / "build_no_ethernet_network_boundary_evidence.py",
         ROOT / "tools" / "run_n03_offline_payload_matrix.py",
         ROOT / "tools" / "run_n03_offline_reconnect_matrix.py",
+        ROOT / "tools" / "check_external_preconditions.py",
         ROOT / "tools" / "check_n03_pc_hosted_dhcp_preflight.ps1",
         ROOT / "tools" / "audit_n03_network_first_readiness.py",
         ROOT / "tools" / "run_n03_current_state_gate.ps1",
@@ -222,10 +223,13 @@ def main() -> int:
     static_apply_refused_text = read_text(static_apply_refused_summary)
     uart_summary = latest("ps_uart_boot_probe_*.summary.txt")
     uart_text = read_text(uart_summary)
+    external_md = REPORTS / "external_preconditions_current.md"
     external_json = REPORTS / "external_preconditions_current.json"
+    external_csv = REPORTS / "external_preconditions_current.csv"
     external = {}
     if external_json.exists():
         external = json.loads(external_json.read_text(encoding="utf-8"))
+    external_overall = str(external.get("overall", "MISSING"))
 
     p7_report = REPORTS / "P7_01_2lane_raw_matrix_report.md"
     protocol_contract = REPORTS / "protocol_contract_current.md"
@@ -406,7 +410,10 @@ def main() -> int:
     safe_evidence_parts = [
         rel(static_net_summary) if static_net_summary is not None else "MISSING_N03_STATIC_DIRECT_PREFLIGHT",
         rel(safe_summary) if safe_summary is not None else "MISSING_N03_SAFE_ACCEPTANCE",
+        rel(external_md),
         rel(external_json),
+        rel(external_csv),
+        f"external={external_overall}",
     ]
     safe_evidence = "; ".join(safe_evidence_parts)
 
@@ -701,7 +708,10 @@ def main() -> int:
         f"- Safe real-board wrapper matrix: `{rel(safe_matrix)}`",
         f"- Static PS bridge report: `{rel(static_report)}`",
         f"- Protocol contract report: `{rel(protocol_contract)}`",
-        f"- External preconditions: `{rel(external_json)}`",
+        f"- External preconditions overall: `{external_overall}`",
+        f"- External preconditions report: `{rel(external_md)}`",
+        f"- External preconditions JSON: `{rel(external_json)}`",
+        f"- External preconditions CSV: `{rel(external_csv)}`",
         f"- P7 physical report: `{rel(p7_report)}`",
         "",
         "## Final N03 Pass Gate",
