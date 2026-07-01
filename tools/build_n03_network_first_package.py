@@ -221,6 +221,7 @@ def main() -> int:
     command_ok = marker(offline_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1")
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
     synth_ok = marker(offline_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1")
+    bad_arg_ok = marker(offline_text, "N03_BAD_ARG_NEGATIVE_PASS=1")
     negative_ok = marker(offline_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1")
     app_segmentation_ok = marker(offline_text, "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_PASS=1")
     reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
@@ -397,7 +398,7 @@ def main() -> int:
             link_status,
             f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}",
             "real reconnect/disconnect matrix and negative command matrix",
-            "offline reconnect payload echo only; real link recovery only if safe wrapper reconnect and negative markers are 1",
+            "offline reconnect payload echo and bad-arg negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1",
         ),
         StageRow(
             "N03-10",
@@ -447,6 +448,8 @@ def main() -> int:
             {"command": "READ network_status", "expected": "ACK network_status", "current_status": "PASS_OFFLINE"},
             {"command": "READ pspl_status", "expected": "STATUS_RSP", "current_status": "PASS_OFFLINE"},
             {"command": "CONFIG payload_bytes 64", "expected": "ACK payload_bytes_accepted", "current_status": "PASS_OFFLINE"},
+            {"command": "CONFIG payload_bytes 0", "expected": "ERROR ERR_BAD_ARG", "current_status": "PASS_OFFLINE_NEGATIVE" if bad_arg_ok else "MISSING"},
+            {"command": "CONFIG payload_bytes too_large", "expected": "ERROR ERR_BAD_ARG", "current_status": "PASS_OFFLINE_NEGATIVE" if bad_arg_ok else "MISSING"},
             {"command": "CONFIG mode network_memory_echo", "expected": "ACK network_memory_echo", "current_status": "PASS_OFFLINE"},
             {"command": "CONFIG mode pspl_synth_loopback", "expected": "ACK pspl_synth_loopback", "current_status": "PASS_OFFLINE"},
             {"command": "CONFIG mode ir_physical", "expected": "ERROR ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE", "current_status": "PASS_OFFLINE_NEGATIVE"},
@@ -541,6 +544,8 @@ def main() -> int:
         [
             {"case": "START ir_tx", "expected": "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE", "current_status": "PASS_OFFLINE"},
             {"case": "CONFIG mode ir_physical", "expected": "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE", "current_status": "PASS_OFFLINE"},
+            {"case": "CONFIG payload_bytes 0", "expected": "ERR_BAD_ARG", "current_status": "PASS_OFFLINE" if bad_arg_ok else "MISSING"},
+            {"case": "CONFIG payload_bytes too_large", "expected": "ERR_BAD_ARG", "current_status": "PASS_OFFLINE" if bad_arg_ok else "MISSING"},
             {"case": "UNKNOWN_CMD", "expected": "ERR_UNKNOWN_CMD", "current_status": "PASS_OFFLINE"},
             {"case": "malformed frame header", "expected": "ERROR/bad_magic or disconnect-safe behavior", "current_status": "SOURCE_TESTED_OFFLINE"},
             {"case": "wrong length", "expected": "ERROR/payload_too_large or parser-safe behavior", "current_status": "SOURCE_TESTED_OFFLINE"},
@@ -564,6 +569,7 @@ def main() -> int:
         f"- Offline summary: `{rel(offline_summary)}`",
         f"- Offline app payload segmentation: `{'PASS' if app_segmentation_ok else 'MISSING'}` (`8192_bytes_over_512_byte_rfcm_frames` when present)",
         f"- Offline reconnect payload echo: `{'PASS' if reconnect_payload_ok else 'MISSING'}`",
+        f"- Offline bad-argument negatives: `{'PASS' if bad_arg_ok else 'MISSING'}`",
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",

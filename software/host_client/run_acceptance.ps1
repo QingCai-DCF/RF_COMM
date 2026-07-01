@@ -387,6 +387,14 @@ function Invoke-N03Negative {
         "--expect-error", "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE"
     ))
     Invoke-RFClient ((Base-Args) + @(
+        "--command", "CONFIG payload_bytes 0",
+        "--expect-error", "ERR_BAD_ARG"
+    ))
+    Invoke-RFClient ((Base-Args) + @(
+        "--command", "CONFIG payload_bytes too_large",
+        "--expect-error", "ERR_BAD_ARG"
+    ))
+    Invoke-RFClient ((Base-Args) + @(
         "--command", "UNKNOWN_CMD",
         "--expect-error", "ERR_UNKNOWN_CMD"
     ))
@@ -394,6 +402,7 @@ function Invoke-N03Negative {
         "--config-mode", "ir_physical",
         "--expect-error", "ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE"
     ))
+    Write-Host "N03_BAD_ARG_NEGATIVE_PASS=1"
     Write-Host "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1"
 }
 

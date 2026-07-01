@@ -849,6 +849,26 @@ class RFClientOfflineTests(unittest.TestCase):
                 rx_thread.join(timeout=1.0)
             server.stop()
 
+    def test_n03_ascii_command_protocol_rejects_bad_payload_sizes(self) -> None:
+        server = MockRFCMServer(rx_echo=False)
+        server.start()
+        client = rf.RFClient("127.0.0.1", server.port, timeout=2.0)
+        stats = rf.Stats()
+        try:
+            client.connect()
+            rx_thread = threading.Thread(target=rf.receiver, args=(client, stats, True), daemon=True)
+            rx_thread.start()
+            for command in (b"CONFIG payload_bytes 0", b"CONFIG payload_bytes too_large"):
+                rf.send_tracked(client, stats, rf.FRAME_COMMAND, command)
+                self.assertTrue(self.wait_for_pending_empty(stats))
+                self.assertEqual(stats.last_error, "ERR_BAD_ARG")
+            self.assertEqual(stats.error_frames, 2)
+        finally:
+            client.close()
+            with suppress(UnboundLocalError):
+                rx_thread.join(timeout=1.0)
+            server.stop()
+
     def test_payload_mismatch_is_a_clean_acceptance_failure(self) -> None:
         stats = rf.Stats()
         stats.payload_mismatch = 1

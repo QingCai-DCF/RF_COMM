@@ -1,3 +1,3 @@
 case,status,evidence
-offline_mock_reconnect,PASS,reports/ps_pc_offline_gates_20260701_111207.summary.txt
+offline_mock_reconnect,PASS,reports/ps_pc_offline_gates_20260701_111531.summary.txt
 real_board_reconnect_10x,REAL_BOARD_PENDING,required by plan

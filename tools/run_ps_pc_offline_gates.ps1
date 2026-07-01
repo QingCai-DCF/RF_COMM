@@ -129,6 +129,7 @@ if (Test-Path -LiteralPath $acceptanceLog) {
         "N03_TCP_PROTOCOL_COMMAND_PASS=1",
         "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1",
         "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1",
+        "N03_BAD_ARG_NEGATIVE_PASS=1",
         "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1"
     )) {
         if (Select-String -LiteralPath $acceptanceLog -Pattern $marker -SimpleMatch -Quiet) {

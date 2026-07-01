@@ -225,6 +225,8 @@ python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --hello --
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --command PING --command GET_VERSION --command GET_BUILD_ID --require-clean
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-session 0x1234 --config-lane-mask 0x1 --config-enable 0 --config-mode network_memory_echo --status --require-clean
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --config-mode pspl_synth_loopback --status --require-clean
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --command 'CONFIG payload_bytes 0' --expect-error ERR_BAD_ARG
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --command 'CONFIG payload_bytes too_large' --expect-error ERR_BAD_ARG
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --command 'START ir_tx' --expect-error ERR_DEFERRED_IR_PHYSICAL_UNAVAILABLE
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --clear
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --send-text 'rf_comm_smoke' --listen
