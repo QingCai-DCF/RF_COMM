@@ -1,6 +1,6 @@
 # N03-10 Network-first Acceptance Package
 
-Generated: 2026-07-01T12:26:46
+Generated: 2026-07-01T12:28:57
 
 Verdict: `PACKAGE_PARTIAL_REAL_BOARD_PENDING`
 
@@ -11,7 +11,7 @@ This package is a current-state N03 deliverable bundle. It proves source/offline
 | item | title | status | evidence | next required evidence | allowed claim |
 | --- | --- | --- | --- | --- | --- |
 | N03-0 | scope switch and IR physical deferred matrix | PASS_DEFERRED_GATE | N03_00_scope_switch_note.md; N03_00_ir_physical_deferred_matrix.md | none for scope switch | IR physical is deferred, not failed for N03 |
-| N03-1 | static IP direct smoke | BLOCKED_PC_STATIC_IP_NOT_CONFIGURED | reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; PC Ethernet lacks 192.168.10.1/24 static direct IP | board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001 | real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1 |
+| N03-1 | static IP direct smoke | BLOCKED_PC_STATIC_IP_NOT_CONFIGURED | reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; PC Ethernet lacks 192.168.10.1/24 static direct IP | board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001 | real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1 |
 | N03-2 | TCP hello/status/build-id | PASS_OFFLINE_RECONNECT_10X_REAL_PENDING | reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_reconnect_matrix_current.md; reports/n03_offline_reconnect_matrix_current.csv | real board HELLO/STATUS/GET_BUILD_ID transcript | real HELLO covered only if safe wrapper static smoke passed |
 | N03-3 | TCP command protocol coverage | PASS_OFFLINE_REAL_PENDING | reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/protocol_contract_current.md | real board command matrix with ACK/ERR for all N03 commands | N03_TCP_PROTOCOL_COMMAND_PASS is real only if safe wrapper marker is 1 |
 | N03-4 | PC to PS memory echo | PASS_OFFLINE_REAL_PENDING | reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt | real board memory echo matrix with payload_mismatch=0 | N03_TCP_PAYLOAD_MEMORY_ECHO_PASS is real only if safe wrapper marker is 1 |
@@ -71,6 +71,7 @@ This package is a current-state N03 deliverable bundle. It proves source/offline
 - Static PS bridge report: `reports/ps_lwip_bridge_static_current.md`
 - Protocol contract report: `reports/protocol_contract_current.md`
 - External preconditions overall: `BLOCKED_EXTERNAL_PRECONDITIONS`
+- External preconditions blockers: `n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010`
 - External preconditions report: `reports/external_preconditions_current.md`
 - External preconditions JSON: `reports/external_preconditions_current.json`
 - External preconditions CSV: `reports/external_preconditions_current.csv`

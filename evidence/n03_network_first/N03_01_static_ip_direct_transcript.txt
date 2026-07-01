@@ -1,4 +1,4 @@
-generated=2026-07-01T12:26:46
+generated=2026-07-01T12:28:57
 status=BLOCKED_PC_STATIC_IP_NOT_CONFIGURED
 target=192.168.10.2:5001
 current_preflight=PC Ethernet lacks 192.168.10.1/24 static direct IP

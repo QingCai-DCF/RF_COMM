@@ -1,10 +1,11 @@
 # N03 Real Board Handoff
 
-Generated: 2026-07-01T12:26:46
+Generated: 2026-07-01T12:28:57
 
 This handoff is the ordered entry point for continuing the N03 network-first plan once the board Ethernet link is available. It does not configure networking, run hardware, or claim a real-board pass by itself.
 
 - Current external preconditions: `BLOCKED_EXTERNAL_PRECONDITIONS`
+- Current external blockers: `n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010`
 - Current runbook: `WAITING_FOR_REAL_HARDWARE`
 - Current blocker: `PC Ethernet lacks 192.168.10.1/24 static direct IP`
 - Latest elevated static setup pending or declined: `1`

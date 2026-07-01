@@ -1,4 +1,4 @@
-generated=2026-07-01T12:26:46
+generated=2026-07-01T12:28:57
 expected_DHCP_TIMEOUT=1
 expected_STATIC_FALLBACK_IP=192.168.10.2
 real_uart_transcript_present=0

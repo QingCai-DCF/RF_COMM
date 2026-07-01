@@ -232,6 +232,13 @@ def main() -> int:
     if external_json.exists():
         external = json.loads(external_json.read_text(encoding="utf-8"))
     external_overall = str(external.get("overall", "MISSING"))
+    external_blockers_raw = external.get("blockers", [])
+    external_blockers = (
+        [str(item) for item in external_blockers_raw]
+        if isinstance(external_blockers_raw, list)
+        else []
+    )
+    external_blockers_text = ", ".join(external_blockers) if external_blockers else "none"
     runbook_md = REPORTS / "real_acceptance_runbook_current.md"
     runbook_json = REPORTS / "real_acceptance_runbook_current.json"
     runbook_csv = REPORTS / "real_acceptance_runbook_current.csv"
@@ -426,6 +433,7 @@ def main() -> int:
         rel(external_json),
         rel(external_csv),
         f"external={external_overall}",
+        f"external_blockers={external_blockers_text}",
     ]
     safe_evidence = "; ".join(safe_evidence_parts)
 
@@ -735,6 +743,7 @@ def main() -> int:
         "This handoff is the ordered entry point for continuing the N03 network-first plan once the board Ethernet link is available. It does not configure networking, run hardware, or claim a real-board pass by itself.",
         "",
         f"- Current external preconditions: `{external_overall}`",
+        f"- Current external blockers: `{external_blockers_text}`",
         f"- Current runbook: `{runbook_overall}`",
         f"- Current blocker: `{blocker_note}`",
         f"- Latest elevated static setup pending or declined: `{int(launch_pending)}`",
@@ -842,6 +851,7 @@ def main() -> int:
         f"- Static PS bridge report: `{rel(static_report)}`",
         f"- Protocol contract report: `{rel(protocol_contract)}`",
         f"- External preconditions overall: `{external_overall}`",
+        f"- External preconditions blockers: `{external_blockers_text}`",
         f"- External preconditions report: `{rel(external_md)}`",
         f"- External preconditions JSON: `{rel(external_json)}`",
         f"- External preconditions CSV: `{rel(external_csv)}`",
