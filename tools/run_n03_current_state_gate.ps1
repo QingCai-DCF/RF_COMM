@@ -23,6 +23,7 @@ $currentJson = Join-Path $reportsDir "n03_current_state_gate_current.json"
 $staticLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.static_direct.log"
 $dhcpLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.pc_dhcp.log"
 $externalLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.external_preconditions.log"
+$runbookLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.real_acceptance_runbook.log"
 $offlineLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.offline_gates.log"
 $readinessLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.readiness.log"
 $packageLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.package.log"
@@ -30,11 +31,12 @@ $packageLog = Join-Path $reportsDir "n03_current_state_gate_$stamp.package.log"
 $staticScript = Join-Path $repoRoot "tools\setup_n03_static_direct_network_safe.ps1"
 $dhcpScript = Join-Path $repoRoot "tools\check_n03_pc_hosted_dhcp_preflight.ps1"
 $externalScript = Join-Path $repoRoot "tools\check_external_preconditions.py"
+$runbookScript = Join-Path $repoRoot "tools\build_real_acceptance_runbook.py"
 $offlineScript = Join-Path $repoRoot "tools\run_ps_pc_offline_gates.ps1"
 $readinessScript = Join-Path $repoRoot "tools\audit_n03_network_first_readiness.py"
 $packageScript = Join-Path $repoRoot "tools\build_n03_network_first_package.py"
 
-foreach ($path in @($staticScript, $dhcpScript, $externalScript, $readinessScript, $packageScript)) {
+foreach ($path in @($staticScript, $dhcpScript, $externalScript, $runbookScript, $readinessScript, $packageScript)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Required path is missing: $path"
     }
@@ -80,7 +82,7 @@ function Invoke-Step {
     Write-SummaryLine "STEP_RESULT name=$Name exit=$exit timeout=0 allowed=$([int]$allowed)"
     if (Test-Path -LiteralPath $LogPath) {
         foreach ($line in (Get-Content -LiteralPath $LogPath -ErrorAction SilentlyContinue | Select-Object -Last 40)) {
-            if ($line -match "PASS|FAIL|BLOCK|READY|N03_|NO_|WROTE_|STEP_|PREFLIGHT|STATIC|DHCP") {
+            if ($line -match "PASS|FAIL|BLOCK|READY|WAITING|RUNBOOK|N03_|NO_|WROTE_|STEP_|PREFLIGHT|STATIC|DHCP") {
                 Write-SummaryLine "STEP_STDOUT name=$Name $line"
             }
         }
@@ -136,6 +138,7 @@ Write-SummaryLine "NO_FINAL_PASS_CLAIM=1"
 Write-SummaryLine "STATIC_DIRECT_LOG=$staticLog"
 Write-SummaryLine "PC_DHCP_LOG=$dhcpLog"
 Write-SummaryLine "EXTERNAL_PRECONDITIONS_LOG=$externalLog"
+Write-SummaryLine "REAL_ACCEPTANCE_RUNBOOK_LOG=$runbookLog"
 Write-SummaryLine "OFFLINE_GATES_LOG=$offlineLog"
 Write-SummaryLine "READINESS_LOG=$readinessLog"
 Write-SummaryLine "PACKAGE_LOG=$packageLog"
@@ -179,6 +182,11 @@ $externalExit = Invoke-Step -Name "n03_external_preconditions" -FilePath "python
 ) -LogPath $externalLog -TimeoutSecondsForStep 45 -AllowedExitCodes @(0)
 if ($externalExit -ne 0 -and $overall -eq 0) { $overall = $externalExit }
 
+$runbookExit = Invoke-Step -Name "n03_real_acceptance_runbook" -FilePath "python.exe" -Arguments @(
+    $runbookScript
+) -LogPath $runbookLog -TimeoutSecondsForStep 45 -AllowedExitCodes @(0)
+if ($runbookExit -ne 0 -and $overall -eq 0) { $overall = $runbookExit }
+
 if ($RunOfflineGates) {
     $offlineExit = Invoke-Step -Name "n03_offline_gates" -FilePath "powershell.exe" -Arguments @(
         "-NoProfile",
@@ -211,6 +219,7 @@ $staticBlocked = Test-LogMarker -Path $staticLog -Pattern "N03_STATIC_DIRECT_NET
 $dhcpReady = Test-LogMarker -Path $dhcpLog -Pattern "N03_PC_HOSTED_DHCP_SERVER_READY=1"
 $dhcpLease = Test-LogMarker -Path $dhcpLog -Pattern ("N03_PC_HOSTED_DHCP_LEASE_PASS" + "=1")
 $externalOverall = Get-LogValue -Path $externalLog -Key "RF_COMM_EXTERNAL_PRECONDITIONS overall"
+$runbookOverall = Get-LogValue -Path $runbookLog -Key "RF_COMM_REAL_ACCEPTANCE_RUNBOOK overall"
 $readinessPass = Test-LogMarker -Path $readinessLog -Pattern "N03_NETWORK_FIRST_READINESS_PASS=1"
 $forbiddenCount = Get-LogValue -Path $readinessLog -Key "N03_FORBIDDEN_PASS_CLAIM_COUNT"
 $blockerCount = Get-LogValue -Path $readinessLog -Key "N03_NETWORK_FIRST_REAL_BOARD_BLOCKER_COUNT"
@@ -220,6 +229,7 @@ Write-SummaryLine "N03_CURRENT_STATE_STATIC_PREFLIGHT_BLOCKED=$([int]$staticBloc
 Write-SummaryLine "N03_CURRENT_STATE_PC_DHCP_SERVER_READY=$([int]$dhcpReady)"
 Write-SummaryLine "N03_CURRENT_STATE_PC_DHCP_LEASE_PASS=$([int]$dhcpLease)"
 Write-SummaryLine "N03_CURRENT_STATE_EXTERNAL_PRECONDITIONS=$externalOverall"
+Write-SummaryLine "N03_CURRENT_STATE_REAL_ACCEPTANCE_RUNBOOK=$runbookOverall"
 Write-SummaryLine "N03_CURRENT_STATE_READINESS_PASS=$([int]$readinessPass)"
 Write-SummaryLine "N03_CURRENT_STATE_FORBIDDEN_PASS_CLAIM_COUNT=$forbiddenCount"
 Write-SummaryLine "N03_CURRENT_STATE_REAL_BOARD_BLOCKER_COUNT=$blockerCount"
@@ -252,6 +262,7 @@ $payload = [ordered]@{
         pc_dhcp_server_ready = [bool]$dhcpReady
         pc_dhcp_lease_pass = [bool]$dhcpLease
         external_preconditions = $externalOverall
+        real_acceptance_runbook = $runbookOverall
         readiness_pass = [bool]$readinessPass
     }
     logs = [ordered]@{
@@ -259,6 +270,7 @@ $payload = [ordered]@{
         static_direct = $staticLog
         pc_dhcp = $dhcpLog
         external_preconditions = $externalLog
+        real_acceptance_runbook = $runbookLog
         offline_gates = $offlineLog
         readiness = $readinessLog
         package = $packageLog
@@ -284,6 +296,7 @@ $md = @(
     "- PC DHCP server ready: $dhcpReady",
     "- PC DHCP lease pass: $dhcpLease",
     "- External preconditions: $externalOverall",
+    "- Real acceptance runbook: $runbookOverall",
     "- Readiness pass: $readinessPass",
     "- Forbidden pass claim count: $forbiddenCount",
     "- Real-board blocker count: $blockerCount",
@@ -291,6 +304,7 @@ $md = @(
     "- Static preflight log: $staticLog",
     "- PC DHCP preflight log: $dhcpLog",
     "- External preconditions log: $externalLog",
+    "- Real acceptance runbook log: $runbookLog",
     "- Readiness log: $readinessLog",
     "- Package rebuild log: $packageLog"
 )

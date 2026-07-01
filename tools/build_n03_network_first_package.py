@@ -152,6 +152,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "tools" / "run_n03_offline_payload_matrix.py",
         ROOT / "tools" / "run_n03_offline_reconnect_matrix.py",
         ROOT / "tools" / "check_external_preconditions.py",
+        ROOT / "tools" / "build_real_acceptance_runbook.py",
         ROOT / "tools" / "check_n03_pc_hosted_dhcp_preflight.ps1",
         ROOT / "tools" / "audit_n03_network_first_readiness.py",
         ROOT / "tools" / "run_n03_current_state_gate.ps1",
@@ -230,6 +231,13 @@ def main() -> int:
     if external_json.exists():
         external = json.loads(external_json.read_text(encoding="utf-8"))
     external_overall = str(external.get("overall", "MISSING"))
+    runbook_md = REPORTS / "real_acceptance_runbook_current.md"
+    runbook_json = REPORTS / "real_acceptance_runbook_current.json"
+    runbook_csv = REPORTS / "real_acceptance_runbook_current.csv"
+    runbook = {}
+    if runbook_json.exists():
+        runbook = json.loads(runbook_json.read_text(encoding="utf-8"))
+    runbook_overall = str(runbook.get("overall", "MISSING"))
 
     p7_report = REPORTS / "P7_01_2lane_raw_matrix_report.md"
     protocol_contract = REPORTS / "protocol_contract_current.md"
@@ -502,7 +510,7 @@ def main() -> int:
             "N03-10",
             "network-first acceptance package",
             "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-            f"{rel(OUT)}; {rel(static_net_report)}; {rel(safe_report)}; {rel(readiness_report)}; {rel(current_gate_report)}",
+            f"{rel(OUT)}; {rel(static_net_report)}; {rel(safe_report)}; {rel(readiness_report)}; {rel(current_gate_report)}; {rel(runbook_md)}",
             "N03-1..N03-6, N03-8, and N03-9 real board evidence",
             "package is ready for review, not final N03 pass",
         ),
@@ -700,6 +708,10 @@ def main() -> int:
         f"- N03 current state gate summary: `{rel(current_gate_summary)}`",
         f"- N03 current state gate report: `{rel(current_gate_report)}`",
         f"- N03 current state gate JSON: `{rel(current_gate_json)}`",
+        f"- Real acceptance runbook overall: `{runbook_overall}`",
+        f"- Real acceptance runbook report: `{rel(runbook_md)}`",
+        f"- Real acceptance runbook JSON: `{rel(runbook_json)}`",
+        f"- Real acceptance runbook CSV: `{rel(runbook_csv)}`",
         f"- Latest elevated static setup launch summary: `{rel(static_launch_summary)}`",
         f"- Latest non-admin static setup apply refusal summary: `{rel(static_apply_refused_summary)}`",
         f"- Latest UART boot probe summary: `{rel(uart_summary)}`",
