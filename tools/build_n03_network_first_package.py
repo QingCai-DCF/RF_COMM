@@ -150,6 +150,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
         ROOT / "tools" / "build_no_ethernet_network_boundary_evidence.py",
         ROOT / "tools" / "run_n03_offline_payload_matrix.py",
+        ROOT / "tools" / "run_n03_offline_reconnect_matrix.py",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
@@ -236,6 +237,11 @@ def main() -> int:
     payload_matrix_json = REPORTS / "n03_offline_payload_matrix_current.json"
     payload_matrix_summary = REPORTS / "n03_offline_payload_matrix_current.summary.txt"
     payload_matrix_text = read_text(payload_matrix_summary) + "\n" + read_text(payload_matrix_report)
+    reconnect_matrix_report = REPORTS / "n03_offline_reconnect_matrix_current.md"
+    reconnect_matrix_csv = REPORTS / "n03_offline_reconnect_matrix_current.csv"
+    reconnect_matrix_json = REPORTS / "n03_offline_reconnect_matrix_current.json"
+    reconnect_matrix_summary = REPORTS / "n03_offline_reconnect_matrix_current.summary.txt"
+    reconnect_matrix_text = read_text(reconnect_matrix_summary) + "\n" + read_text(reconnect_matrix_report)
 
     command_ok = marker(offline_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1")
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
@@ -247,6 +253,14 @@ def main() -> int:
     offline_payload_matrix_ok = (
         marker(offline_text, "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1")
         or marker(payload_matrix_text, "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1")
+    )
+    offline_reconnect_hello_10x_ok = (
+        marker(offline_text, "N03_OFFLINE_RECONNECT_HELLO_10X_PASS=1")
+        or marker(reconnect_matrix_text, "N03_OFFLINE_RECONNECT_HELLO_10X_PASS=1")
+    )
+    offline_reconnect_payload_20x_ok = (
+        marker(offline_text, "N03_OFFLINE_RECONNECT_PAYLOAD_20X_PASS=1")
+        or marker(reconnect_matrix_text, "N03_OFFLINE_RECONNECT_PAYLOAD_20X_PASS=1")
     )
     reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
@@ -318,7 +332,15 @@ def main() -> int:
         if real_board_reachable
         else "REAL_BOARD_PENDING"
     )
-    hello_status = "PASS_REAL_BOARD" if safe_static_ok else ("PASS_OFFLINE_REAL_PENDING" if offline_ok else "MISSING_OFFLINE_EVIDENCE")
+    hello_status = (
+        "PASS_REAL_BOARD"
+        if safe_static_ok
+        else "PASS_OFFLINE_RECONNECT_10X_REAL_PENDING"
+        if offline_ok and offline_reconnect_hello_10x_ok
+        else "PASS_OFFLINE_REAL_PENDING"
+        if offline_ok
+        else "MISSING_OFFLINE_EVIDENCE"
+    )
     command_status = "PASS_REAL_BOARD" if safe_command_ok else ("PASS_OFFLINE_REAL_PENDING" if command_ok and protocol_ok else "MISSING_OR_PARTIAL")
     memory_status = "PASS_REAL_BOARD" if safe_memory_ok else ("PASS_OFFLINE_REAL_PENDING" if memory_ok else "MISSING_OFFLINE_EVIDENCE")
     synth_status = "PASS_REAL_BOARD" if safe_synth_ok else ("PASS_OFFLINE_REAL_PENDING" if synth_ok else "MISSING_OFFLINE_EVIDENCE")
@@ -334,6 +356,8 @@ def main() -> int:
     link_status = (
         "PASS_REAL_BOARD"
         if safe_link_ok and safe_negative_ok
+        else "PASS_OFFLINE_RECONNECT_20X_PAYLOAD_PROTOCOL_NEGATIVE_REAL_LINK_PENDING"
+        if negative_ok and offline_reconnect_payload_20x_ok and protocol_fault_ok
         else "PASS_OFFLINE_RECONNECT_PAYLOAD_PROTOCOL_NEGATIVE_REAL_LINK_PENDING"
         if negative_ok and reconnect_payload_ok and protocol_fault_ok
         else "PASS_OFFLINE_RECONNECT_PAYLOAD_REAL_LINK_PENDING"
@@ -379,7 +403,7 @@ def main() -> int:
             "N03-2",
             "TCP hello/status/build-id",
             hello_status,
-            f"{rel(safe_summary)}; {rel(offline_summary)}",
+            f"{rel(safe_summary)}; {rel(offline_summary)}; {rel(reconnect_matrix_report)}; {rel(reconnect_matrix_csv)}",
             "real board HELLO/STATUS/GET_BUILD_ID transcript",
             "real HELLO covered only if safe wrapper static smoke passed",
         ),
@@ -435,9 +459,9 @@ def main() -> int:
             "N03-9",
             "link recovery and negative tests",
             link_status,
-            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}; {rel(boundary_report)}; {rel(static_report)}",
+            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}; {rel(reconnect_matrix_report)}; {rel(reconnect_matrix_csv)}; {rel(boundary_report)}; {rel(static_report)}",
             "real reconnect/disconnect matrix and negative command matrix",
-            "offline reconnect payload echo, bad-arg negatives, and source/boundary protocol-fault negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1",
+            "offline 10x/20x reconnect, payload echo, bad-arg negatives, and source/boundary protocol-fault negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1",
         ),
         StageRow(
             "N03-10",
@@ -464,12 +488,13 @@ def main() -> int:
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
-        report_template("N03-2 TCP Hello Report", rows[2].status, "Offline HELLO/STATUS path is covered by the latest offline gate. Real board HELLO/GET_BUILD_ID/PING transcript remains required.", rows),
+        report_template("N03-2 TCP Hello Report", rows[2].status, f"Offline HELLO/STATUS path and plan-sized 10x reconnect tooling are covered by the latest offline gate when present. Real board HELLO/GET_BUILD_ID/PING transcript remains required. Offline reconnect report: `{rel(reconnect_matrix_report)}`.", rows),
     )
     write_csv(
         OUT / "N03_02_tcp_connect_disconnect.csv",
         [
-            {"case": "offline_mock_reconnect", "status": "PASS" if marker(offline_text, "reconnect cycle 2/2") else "MISSING", "evidence": rel(offline_summary)},
+            {"case": "offline_mock_reconnect_10x_hello_status", "status": "PASS_OFFLINE" if offline_reconnect_hello_10x_ok else "MISSING", "evidence": rel(reconnect_matrix_csv)},
+            {"case": "offline_mock_quick_reconnect", "status": "PASS" if marker(offline_text, "reconnect cycle 2/2") else "MISSING", "evidence": rel(offline_summary)},
             {"case": "real_board_reconnect_10x", "status": "REAL_BOARD_PENDING", "evidence": "required by plan"},
         ],
     )
@@ -571,11 +596,12 @@ def main() -> int:
     )
     write(
         OUT / "N03_09_link_recovery_negative_tests.md",
-        report_template("N03-9 Link Recovery Negative Tests", rows[9].status, "Offline reconnect, post-reconnect payload echo, bad-argument command errors, and source/boundary protocol-fault diagnostics are covered. Real board reconnect and cable unplug/replug evidence remains pending.", rows),
+        report_template("N03-9 Link Recovery Negative Tests", rows[9].status, f"Offline 20x reconnect with post-reconnect payload echo, bad-argument command errors, and source/boundary protocol-fault diagnostics are covered when the reconnect matrix passes. Real board reconnect and cable unplug/replug evidence remains pending. Offline reconnect report: `{rel(reconnect_matrix_report)}`.", rows),
     )
     write_csv(
         OUT / "N03_09_reconnect_matrix.csv",
         [
+            {"case": "offline_mock_reconnect_payload_echo_20x", "status": "PASS_OFFLINE" if offline_reconnect_payload_20x_ok else "MISSING", "evidence": rel(reconnect_matrix_csv)},
             {"case": "offline_mock_reconnect_payload_echo_2x", "status": "PASS_OFFLINE" if reconnect_payload_ok else "MISSING", "evidence": rel(offline_summary)},
             {"case": "real_board_reconnect_20x", "status": "REAL_BOARD_PENDING", "evidence": "required by plan"},
             {"case": "real_cable_unplug_replug", "status": "REAL_BOARD_PENDING", "evidence": "manual hardware step required"},
@@ -615,6 +641,11 @@ def main() -> int:
         f"- Offline payload matrix report: `{rel(payload_matrix_report)}`",
         f"- Offline payload matrix CSV: `{rel(payload_matrix_csv)}`",
         f"- Offline payload matrix JSON: `{rel(payload_matrix_json)}`",
+        f"- Offline HELLO/STATUS reconnect 10x: `{'PASS' if offline_reconnect_hello_10x_ok else 'MISSING'}`",
+        f"- Offline payload reconnect 20x: `{'PASS' if offline_reconnect_payload_20x_ok else 'MISSING'}`",
+        f"- Offline reconnect matrix report: `{rel(reconnect_matrix_report)}`",
+        f"- Offline reconnect matrix CSV: `{rel(reconnect_matrix_csv)}`",
+        f"- Offline reconnect matrix JSON: `{rel(reconnect_matrix_json)}`",
         f"- Offline reconnect payload echo: `{'PASS' if reconnect_payload_ok else 'MISSING'}`",
         f"- Offline bad-argument negatives: `{'PASS' if bad_arg_ok else 'MISSING'}`",
         f"- Offline/source protocol-fault negatives: `{'PASS' if protocol_fault_ok else 'MISSING'}`",
