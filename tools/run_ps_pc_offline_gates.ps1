@@ -16,16 +16,18 @@ $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $summaryLog = Join-Path $reportsDir "ps_pc_offline_gates_$stamp.summary.txt"
 $staticLog = Join-Path $reportsDir "ps_pc_offline_gates_$stamp.static.log"
 $boundaryLog = Join-Path $reportsDir "ps_pc_offline_gates_$stamp.boundary.log"
+$payloadMatrixLog = Join-Path $reportsDir "ps_pc_offline_gates_$stamp.payload_matrix.log"
 $unittestLog = Join-Path $reportsDir "ps_pc_offline_gates_$stamp.unittest.log"
 $acceptanceLog = Join-Path $reportsDir "ps_pc_offline_gates_$stamp.acceptance.log"
 $acceptanceDir = Join-Path $reportsDir "ps_pc_offline_acceptance_$stamp"
 
 $staticScript = Join-Path $repoRoot "software\ps_lwip_bridge\check_ps_bridge_static.py"
 $boundaryScript = Join-Path $repoRoot "tools\build_no_ethernet_network_boundary_evidence.py"
+$payloadMatrixScript = Join-Path $repoRoot "tools\run_n03_offline_payload_matrix.py"
 $unitTestScript = Join-Path $repoRoot "software\host_client\test_rf_comm_client.py"
 $acceptanceScript = Join-Path $repoRoot "software\host_client\run_acceptance.ps1"
 
-foreach ($path in @($staticScript, $boundaryScript, $unitTestScript, $acceptanceScript)) {
+foreach ($path in @($staticScript, $boundaryScript, $payloadMatrixScript, $unitTestScript, $acceptanceScript)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Required path is missing: $path"
     }
@@ -85,6 +87,7 @@ function Invoke-Step {
 Write-SummaryLine "REPO_ROOT=$repoRoot"
 Write-SummaryLine "STATIC_LOG=$staticLog"
 Write-SummaryLine "BOUNDARY_LOG=$boundaryLog"
+Write-SummaryLine "PAYLOAD_MATRIX_LOG=$payloadMatrixLog"
 Write-SummaryLine "UNITTEST_LOG=$unittestLog"
 Write-SummaryLine "ACCEPTANCE_LOG=$acceptanceLog"
 Write-SummaryLine "ACCEPTANCE_DIR=$acceptanceDir"
@@ -92,7 +95,7 @@ Write-SummaryLine "REPEAT=$Repeat"
 Write-SummaryLine "PAYLOAD_SIZE=$PayloadSize"
 Write-SummaryLine "RECONNECT_CYCLES=$ReconnectCycles"
 Write-SummaryLine "TIMEOUT_SECONDS=$TimeoutSeconds"
-Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative;app_payload_segmentation;protocol_fault_boundary;reconnect_payload_echo"
+Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative;app_payload_segmentation;payload_matrix;protocol_fault_boundary;reconnect_payload_echo"
 
 $overall = 0
 
@@ -103,6 +106,16 @@ $boundaryExit = Invoke-Step -Name "no_ethernet_network_boundary" -FilePath "pyth
 if ($boundaryExit -ne 0 -and $overall -eq 0) { $overall = $boundaryExit }
 if ($boundaryExit -eq 0 -and (Select-String -LiteralPath $boundaryLog -Pattern "RF_COMM_NO_ETHERNET_NETWORK_BOUNDARY_EVIDENCE overall=PASS_OFFLINE_NETWORK_BOUNDARY" -SimpleMatch -Quiet)) {
     Write-SummaryLine "N03_PROTOCOL_FAULT_NEGATIVE_OFFLINE_PASS=1"
+}
+
+$payloadMatrixExit = Invoke-Step -Name "n03_offline_payload_matrix" -FilePath "python.exe" -Arguments @(
+    $payloadMatrixScript,
+    "--repeat",
+    "2"
+) -LogPath $payloadMatrixLog -TimeoutSecondsForStep 90
+if ($payloadMatrixExit -ne 0 -and $overall -eq 0) { $overall = $payloadMatrixExit }
+if ($payloadMatrixExit -eq 0 -and (Select-String -LiteralPath $payloadMatrixLog -Pattern "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1" -SimpleMatch -Quiet)) {
+    Write-SummaryLine "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1"
 }
 
 $unitExit = Invoke-Step -Name "host_client_unittest" -FilePath "python.exe" -Arguments @("-m", "unittest", $unitTestScript) -LogPath $unittestLog -TimeoutSecondsForStep 90
@@ -162,7 +175,7 @@ if (Test-Path -LiteralPath $acceptanceDir) {
 }
 
 if ($overall -eq 0) {
-    Write-SummaryLine "PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 boundary=1 n03_commands=1 n03_modes=1"
+    Write-SummaryLine "PS_PC_OFFLINE_GATES_PASS static=1 unittest=1 offline_mock=1 boundary=1 payload_matrix=1 n03_commands=1 n03_modes=1"
 } else {
     Write-SummaryLine "PS_PC_OFFLINE_GATES_FAIL exit=$overall"
 }

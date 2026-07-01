@@ -136,6 +136,8 @@ class Stats:
     rtt_max: float = 0.0
     rtt_sum: float = 0.0
     rtt_count: int = 0
+    rtt_samples: list[float] = field(default_factory=list)
+    tx_data_rtt_samples: list[float] = field(default_factory=list)
     last_error: str = ""
     pending: dict[int, tuple[int, float]] = field(default_factory=dict)
     expected_rx_payloads: deque[bytes] = field(default_factory=deque)
@@ -193,6 +195,9 @@ class Stats:
                     self.rtt_sum += rtt
                     self.rtt_max = max(self.rtt_max, rtt)
                     self.rtt_min = rtt if self.rtt_min is None else min(self.rtt_min, rtt)
+                    self.rtt_samples.append(rtt)
+                    if sent_type == FRAME_TX_DATA:
+                        self.tx_data_rtt_samples.append(rtt)
                     if sent_type == FRAME_TX_DATA and frame.frame_type == FRAME_ACK:
                         self.acked_tx_data += 1
                     elif sent_type == FRAME_TX_DATA and frame.frame_type == FRAME_ERROR:

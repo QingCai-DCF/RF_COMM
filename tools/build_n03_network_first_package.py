@@ -127,6 +127,13 @@ def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
         writer.writerows(rows)
 
 
+def read_csv_rows(path: Path | None) -> list[dict[str, str]]:
+    if path is None or not path.exists():
+        return []
+    with path.open("r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
 def artifact_rows() -> list[dict[str, str]]:
     paths = [
         ROOT / "TFDU_VFIR_Client_Array" / "design_shiboqi_wrapper.bit",
@@ -142,6 +149,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "host_client" / "test_rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
         ROOT / "tools" / "build_no_ethernet_network_boundary_evidence.py",
+        ROOT / "tools" / "run_n03_offline_payload_matrix.py",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
@@ -223,6 +231,11 @@ def main() -> int:
     boundary_csv = REPORTS / "no_ethernet_network_boundary_evidence_current.csv"
     boundary_json = REPORTS / "no_ethernet_network_boundary_evidence_current.json"
     boundary_text = read_text(boundary_report)
+    payload_matrix_report = REPORTS / "n03_offline_payload_matrix_current.md"
+    payload_matrix_csv = REPORTS / "n03_offline_payload_matrix_current.csv"
+    payload_matrix_json = REPORTS / "n03_offline_payload_matrix_current.json"
+    payload_matrix_summary = REPORTS / "n03_offline_payload_matrix_current.summary.txt"
+    payload_matrix_text = read_text(payload_matrix_summary) + "\n" + read_text(payload_matrix_report)
 
     command_ok = marker(offline_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1")
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
@@ -231,6 +244,10 @@ def main() -> int:
     protocol_fault_ok = marker(offline_text, "N03_PROTOCOL_FAULT_NEGATIVE_OFFLINE_PASS=1")
     negative_ok = marker(offline_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1")
     app_segmentation_ok = marker(offline_text, "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_PASS=1")
+    offline_payload_matrix_ok = (
+        marker(offline_text, "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1")
+        or marker(payload_matrix_text, "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1")
+    )
     reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
     safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
@@ -326,7 +343,9 @@ def main() -> int:
         else "MISSING_OR_PARTIAL"
     )
     payload_matrix_status = (
-        "PARTIAL_OFFLINE_APP_SEGMENTATION_REAL_MATRIX_PENDING"
+        "PASS_OFFLINE_LOCALHOST_MATRIX_REAL_THROUGHPUT_PENDING"
+        if memory_ok and synth_ok and offline_payload_matrix_ok
+        else "PARTIAL_OFFLINE_APP_SEGMENTATION_REAL_MATRIX_PENDING"
         if memory_ok and synth_ok and app_segmentation_ok
         else "PARTIAL_OFFLINE_REAL_MATRIX_PENDING"
         if memory_ok and synth_ok
@@ -408,9 +427,9 @@ def main() -> int:
             "N03-8",
             "payload matrix and throughput",
             payload_matrix_status,
-            rel(offline_summary),
+            f"{rel(offline_summary)}; {rel(payload_matrix_report)}; {rel(payload_matrix_csv)}",
             "real board 16..8192 byte payload matrix and throughput CSV",
-            "offline app-payload segmentation/tooling only; no real throughput pass",
+            "offline localhost payload matrix/tooling only; no real throughput pass",
         ),
         StageRow(
             "N03-9",
@@ -528,11 +547,14 @@ def main() -> int:
     write(OUT / "N03_07_pc_ipconfig.txt", f"generated={generated}\nstatus=DEFERRED_NO_PC_DHCP_SERVER\n")
     write(
         OUT / "N03_08_network_payload_matrix_report.md",
-        report_template("N03-8 Network Payload Matrix", rows[8].status, "The full real 16..8192 byte throughput matrix is not yet run. Current offline evidence covers command/mode plumbing plus segmented application payload tooling for payloads larger than the 512-byte RFCM frame limit.", rows),
+        report_template("N03-8 Network Payload Matrix", rows[8].status, f"The full real 16..8192 byte throughput matrix is not yet run. Current offline evidence covers localhost payload matrix tooling, segmentation, ACK/RX echo, and metric capture without claiming real board throughput. Offline matrix report: `{rel(payload_matrix_report)}`.", rows),
     )
+    offline_payload_rows = read_csv_rows(payload_matrix_csv)
     write_csv(
         OUT / "N03_08_network_payload_matrix.csv",
-        [
+        offline_payload_rows
+        if offline_payload_rows and offline_payload_matrix_ok
+        else [
             {
                 "mode": mode,
                 "payload_bytes": str(size),
@@ -589,6 +611,10 @@ def main() -> int:
         "",
         f"- Offline summary: `{rel(offline_summary)}`",
         f"- Offline app payload segmentation: `{'PASS' if app_segmentation_ok else 'MISSING'}` (`8192_bytes_over_512_byte_rfcm_frames` when present)",
+        f"- Offline payload matrix: `{'PASS' if offline_payload_matrix_ok else 'MISSING'}`",
+        f"- Offline payload matrix report: `{rel(payload_matrix_report)}`",
+        f"- Offline payload matrix CSV: `{rel(payload_matrix_csv)}`",
+        f"- Offline payload matrix JSON: `{rel(payload_matrix_json)}`",
         f"- Offline reconnect payload echo: `{'PASS' if reconnect_payload_ok else 'MISSING'}`",
         f"- Offline bad-argument negatives: `{'PASS' if bad_arg_ok else 'MISSING'}`",
         f"- Offline/source protocol-fault negatives: `{'PASS' if protocol_fault_ok else 'MISSING'}`",
