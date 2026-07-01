@@ -152,6 +152,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "tools" / "run_n03_offline_payload_matrix.py",
         ROOT / "tools" / "run_n03_offline_reconnect_matrix.py",
         ROOT / "tools" / "check_n03_pc_hosted_dhcp_preflight.ps1",
+        ROOT / "tools" / "audit_n03_network_first_readiness.py",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
@@ -247,6 +248,9 @@ def main() -> int:
     pc_dhcp_report = current_report("n03_pc_hosted_dhcp_preflight_current.md")
     pc_dhcp_json = current_report("n03_pc_hosted_dhcp_preflight_current.json")
     pc_dhcp_text = read_text(pc_dhcp_summary)
+    readiness_report = current_report("n03_network_first_readiness_current.md")
+    readiness_csv = current_report("n03_network_first_readiness_current.csv")
+    readiness_json = current_report("n03_network_first_readiness_current.json")
 
     command_ok = marker(offline_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1")
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
@@ -487,7 +491,7 @@ def main() -> int:
             "N03-10",
             "network-first acceptance package",
             "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-            f"{rel(OUT)}; {rel(static_net_report)}; {rel(safe_report)}",
+            f"{rel(OUT)}; {rel(static_net_report)}; {rel(safe_report)}; {rel(readiness_report)}",
             "N03-1..N03-6, N03-8, and N03-9 real board evidence",
             "package is ready for review, not final N03 pass",
         ),
@@ -679,6 +683,9 @@ def main() -> int:
         f"- N03 PC-hosted DHCP preflight report: `{rel(pc_dhcp_report)}`",
         f"- N03 PC-hosted DHCP preflight JSON: `{rel(pc_dhcp_json)}`",
         f"- N03 PC-hosted DHCP preflight status: `{pc_dhcp_status_value or 'MISSING'}`",
+        f"- N03 readiness audit report: `{rel(readiness_report)}`",
+        f"- N03 readiness audit CSV: `{rel(readiness_csv)}`",
+        f"- N03 readiness audit JSON: `{rel(readiness_json)}`",
         f"- Latest elevated static setup launch summary: `{rel(static_launch_summary)}`",
         f"- Latest non-admin static setup apply refusal summary: `{rel(static_apply_refused_summary)}`",
         f"- Latest UART boot probe summary: `{rel(uart_summary)}`",

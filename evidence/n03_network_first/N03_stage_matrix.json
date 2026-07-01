@@ -83,7 +83,7 @@
     "item": "N03-10",
     "title": "network-first acceptance package",
     "status": "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-    "evidence": "evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260701_113628.md",
+    "evidence": "evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260701_113628.md; reports/n03_network_first_readiness_current.md",
     "next_required_evidence": "N03-1..N03-6, N03-8, and N03-9 real board evidence",
     "allowed_claim": "package is ready for review, not final N03 pass"
   }
