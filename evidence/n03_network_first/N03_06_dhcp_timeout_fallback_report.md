@@ -1,6 +1,6 @@
 # N03-6 DHCP Timeout Static Fallback
 
-Generated: 2026-07-01T12:06:39
+Generated: 2026-07-01T12:12:02
 
 Verdict: `SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING`
 

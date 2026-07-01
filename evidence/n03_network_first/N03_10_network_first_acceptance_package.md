@@ -1,6 +1,6 @@
 # N03-10 Network-first Acceptance Package
 
-Generated: 2026-07-01T12:06:38
+Generated: 2026-07-01T12:12:02
 
 Verdict: `PACKAGE_PARTIAL_REAL_BOARD_PENDING`
 
@@ -54,6 +54,9 @@ This package is a current-state N03 deliverable bundle. It proves source/offline
 - N03 current state gate summary: `reports/n03_current_state_gate_current.summary.txt`
 - N03 current state gate report: `reports/n03_current_state_gate_current.md`
 - N03 current state gate JSON: `reports/n03_current_state_gate_current.json`
+- N03 real board handoff: `evidence/n03_network_first/N03_real_board_handoff.md`
+- N03 real board handoff CSV: `evidence/n03_network_first/N03_real_board_handoff.csv`
+- N03 real board handoff JSON: `evidence/n03_network_first/N03_real_board_handoff.json`
 - Real acceptance runbook overall: `WAITING_FOR_ETHERNET`
 - Real acceptance runbook report: `reports/real_acceptance_runbook_current.md`
 - Real acceptance runbook JSON: `reports/real_acceptance_runbook_current.json`

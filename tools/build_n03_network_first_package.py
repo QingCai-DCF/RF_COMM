@@ -148,6 +148,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "host_client" / "mock_rfcm_server.py",
         ROOT / "software" / "host_client" / "test_rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
+        ROOT / "tools" / "build_n03_network_first_package.py",
         ROOT / "tools" / "build_no_ethernet_network_boundary_evidence.py",
         ROOT / "tools" / "run_n03_offline_payload_matrix.py",
         ROOT / "tools" / "run_n03_offline_reconnect_matrix.py",
@@ -663,6 +664,118 @@ def main() -> int:
             {"case": "wrong checksum", "expected": "N/A for TCP RFCM frame; IR CRC negative is deferred outside N03 network-first scope", "current_status": "DEFERRED_IR_FRAME_CRC_NOT_TCP_RFCM"},
         ],
     )
+    current_gate_command = (
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        ".\\tools\\run_n03_current_state_gate.ps1 -TimeoutSeconds 3"
+    )
+    real_acceptance_command = (
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        ".\\tools\\run_n03_network_first_acceptance_safe.ps1 "
+        "-TargetHost 192.168.10.2 -Port 5001 -ComPort COM3 "
+        "-ReconnectCycles 20 -MatrixRepeat 100 -SustainedSeconds 60 -LongSeconds 300"
+    )
+    package_rebuild_command = "python .\\tools\\build_n03_network_first_package.py"
+    handoff_rows = [
+        {
+            "step": "0_connect_and_prepare",
+            "when": "Before any real N03 acceptance run",
+            "command": elevated_uac_command or static_apply_command or "configure PC Ethernet as 192.168.10.1/24",
+            "expected_evidence": rel(static_net_summary),
+            "pass_boundary": "PC_ETHERNET_LINK_UP=1 and PC_EXPECTED_STATIC_IP_PRESENT=1 only; no board TCP pass yet",
+        },
+        {
+            "step": "1_current_state_gate",
+            "when": "After Ethernet is plugged in and static IP is configured",
+            "command": current_gate_command,
+            "expected_evidence": rel(current_gate_summary),
+            "pass_boundary": "N03_CURRENT_STATE_GATE_STATUS remains authoritative; do not claim final pass from preflight alone",
+        },
+        {
+            "step": "2_real_static_direct_acceptance",
+            "when": "Only after 192.168.10.2:5001 is reachable",
+            "command": real_acceptance_command,
+            "expected_evidence": "reports/n03_network_first_acceptance_<stamp>.*/ and reports/n03_network_first_acceptance_safe_<stamp>.*",
+            "pass_boundary": "Real N03-1..N03-5/N03-9 claims require non-dry-run safe wrapper markers and clean logs",
+        },
+        {
+            "step": "3_dhcp_fallback_capture",
+            "when": "After board boots with DHCP client and no PC DHCP server",
+            "command": "capture UART DHCP_START/DHCP_TIMEOUT/STATIC_FALLBACK_IP=192.168.10.2/TCP_READY, then rerun the safe wrapper",
+            "expected_evidence": "reports/ps_uart_boot_probe_<stamp>.summary.txt plus N03 safe wrapper logs",
+            "pass_boundary": "DHCP timeout/static fallback pass also requires real TCP HELLO and memory echo after fallback",
+        },
+        {
+            "step": "4_optional_pc_hosted_dhcp",
+            "when": "Only if N03-7 is required and PC DHCP service is intentionally configured",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\tools\\check_n03_pc_hosted_dhcp_preflight.ps1",
+            "expected_evidence": rel(pc_dhcp_summary),
+            "pass_boundary": "Preflight is not a lease pass; lease pass requires DISCOVER/OFFER/REQUEST/ACK and TCP HELLO/STATUS",
+        },
+        {
+            "step": "5_rebuild_package",
+            "when": "After any new real safe-wrapper evidence is captured",
+            "command": package_rebuild_command,
+            "expected_evidence": "evidence/n03_network_first/N03_10_network_first_acceptance_package.md",
+            "pass_boundary": "Package may claim final N03 only after required real-board gates pass; never claim IR/2-lane/rotation/final target here",
+        },
+    ]
+    write_csv(OUT / "N03_real_board_handoff.csv", handoff_rows)
+    (OUT / "N03_real_board_handoff.json").write_text(
+        json.dumps(handoff_rows, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    handoff_md = [
+        "# N03 Real Board Handoff",
+        "",
+        f"Generated: {generated}",
+        "",
+        "This handoff is the ordered entry point for continuing the N03 network-first plan once the board Ethernet link is available. It does not configure networking, run hardware, or claim a real-board pass by itself.",
+        "",
+        f"- Current external preconditions: `{external_overall}`",
+        f"- Current runbook: `{runbook_overall}`",
+        f"- Current blocker: `{blocker_note}`",
+        f"- Current gate report: `{rel(current_gate_report)}`",
+        f"- Safe wrapper summary: `{rel(safe_summary)}`",
+        "",
+        "## Ordered Commands",
+        "",
+        "| step | when | command | expected evidence | pass boundary |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in handoff_rows:
+        handoff_md.append(
+            "| "
+            + " | ".join(
+                str(row[key]).replace("|", "/").replace("\n", " ")
+                for key in ("step", "when", "command", "expected_evidence", "pass_boundary")
+            )
+            + " |"
+        )
+    handoff_md.extend(
+        [
+            "",
+            "## Log Index",
+            "",
+            "- PC logs: `reports/n03_network_first_acceptance_<stamp>/*.out.log` and `*.err.log` from the safe wrapper.",
+            "- UART logs: `reports/n03_network_first_acceptance_<stamp>/uart_probe.out.log` and `reports/ps_uart_boot_probe_<stamp>.*` when captured.",
+            "- CSV evidence: `reports/n03_network_first_acceptance_safe_<stamp>.matrix.csv`, `reports/n03_offline_payload_matrix_current.csv`, and `reports/n03_offline_reconnect_matrix_current.csv`.",
+            "- Vivado/Vitis build logs: attach only if the bit/ELF is rebuilt for N03; the current safe wrapper does not program FPGA or rebuild artifacts.",
+            "",
+            "## Non-Claims",
+            "",
+            "```text",
+            "IR_PHYSICAL_PASS=0",
+            "2LANE_PASS=0",
+            "REAL_IR_DATA_ROUNDTRIP_PASS=0",
+            "ROTATION_PASS=0",
+            "4LANE_PASS=0",
+            "8LANE_PASS=0",
+            "FINAL_TARGET_PASS=0",
+            "```",
+        ]
+    )
+    write(OUT / "N03_real_board_handoff.md", "\n".join(handoff_md))
+
     package_body = [
         "# N03-10 Network-first Acceptance Package",
         "",
@@ -708,6 +821,9 @@ def main() -> int:
         f"- N03 current state gate summary: `{rel(current_gate_summary)}`",
         f"- N03 current state gate report: `{rel(current_gate_report)}`",
         f"- N03 current state gate JSON: `{rel(current_gate_json)}`",
+        f"- N03 real board handoff: `{rel(OUT / 'N03_real_board_handoff.md')}`",
+        f"- N03 real board handoff CSV: `{rel(OUT / 'N03_real_board_handoff.csv')}`",
+        f"- N03 real board handoff JSON: `{rel(OUT / 'N03_real_board_handoff.json')}`",
         f"- Real acceptance runbook overall: `{runbook_overall}`",
         f"- Real acceptance runbook report: `{rel(runbook_md)}`",
         f"- Real acceptance runbook JSON: `{rel(runbook_json)}`",
