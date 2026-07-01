@@ -151,6 +151,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "tools" / "build_no_ethernet_network_boundary_evidence.py",
         ROOT / "tools" / "run_n03_offline_payload_matrix.py",
         ROOT / "tools" / "run_n03_offline_reconnect_matrix.py",
+        ROOT / "tools" / "check_n03_pc_hosted_dhcp_preflight.ps1",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
@@ -242,6 +243,10 @@ def main() -> int:
     reconnect_matrix_json = REPORTS / "n03_offline_reconnect_matrix_current.json"
     reconnect_matrix_summary = REPORTS / "n03_offline_reconnect_matrix_current.summary.txt"
     reconnect_matrix_text = read_text(reconnect_matrix_summary) + "\n" + read_text(reconnect_matrix_report)
+    pc_dhcp_summary = current_report("n03_pc_hosted_dhcp_preflight_current.summary.txt")
+    pc_dhcp_report = current_report("n03_pc_hosted_dhcp_preflight_current.md")
+    pc_dhcp_json = current_report("n03_pc_hosted_dhcp_preflight_current.json")
+    pc_dhcp_text = read_text(pc_dhcp_summary)
 
     command_ok = marker(offline_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1")
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
@@ -262,6 +267,9 @@ def main() -> int:
         marker(offline_text, "N03_OFFLINE_RECONNECT_PAYLOAD_20X_PASS=1")
         or marker(reconnect_matrix_text, "N03_OFFLINE_RECONNECT_PAYLOAD_20X_PASS=1")
     )
+    pc_dhcp_preflight_complete = marker(pc_dhcp_text, "N03_PC_HOSTED_DHCP_PREFLIGHT_COMPLETE=1")
+    pc_dhcp_server_ready = marker(pc_dhcp_text, "N03_PC_HOSTED_DHCP_SERVER_READY=1")
+    pc_dhcp_status_value = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_PREFLIGHT_STATUS")
     reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
     safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
@@ -375,6 +383,18 @@ def main() -> int:
         if memory_ok and synth_ok
         else "MISSING_OFFLINE_EVIDENCE"
     )
+    pc_dhcp_status = (
+        "PC_DHCP_SERVER_READY_LEASE_PENDING"
+        if pc_dhcp_server_ready
+        else "DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED"
+        if pc_dhcp_preflight_complete
+        else "DEFERRED_NO_PC_DHCP_SERVER"
+    )
+    pc_dhcp_evidence = (
+        f"{rel(pc_dhcp_summary)}; {rel(pc_dhcp_report)}; {rel(pc_dhcp_json)}; status={pc_dhcp_status_value or 'MISSING'}"
+        if pc_dhcp_preflight_complete
+        else "no PC DHCP server run recorded"
+    )
     safe_evidence_parts = [
         rel(static_net_summary) if static_net_summary is not None else "MISSING_N03_STATIC_DIRECT_PREFLIGHT",
         rel(safe_summary) if safe_summary is not None else "MISSING_N03_SAFE_ACCEPTANCE",
@@ -442,10 +462,10 @@ def main() -> int:
         StageRow(
             "N03-7",
             "PC-hosted DHCP lease",
-            "DEFERRED_NO_PC_DHCP_SERVER",
-            "no PC DHCP server run recorded",
+            pc_dhcp_status,
+            pc_dhcp_evidence,
             "DHCP DISCOVER/OFFER/REQUEST/ACK and board IP in pool",
-            "no DHCP lease pass",
+            "PC DHCP preflight only; no DHCP lease pass",
         ),
         StageRow(
             "N03-8",
@@ -566,10 +586,10 @@ def main() -> int:
     )
     write(
         OUT / "N03_07_pc_hosted_dhcp_lease_report.md",
-        report_template("N03-7 PC-hosted DHCP Lease", rows[7].status, "No PC DHCP server lease run is recorded. This is explicitly allowed to defer by the N03 plan.", rows),
+        report_template("N03-7 PC-hosted DHCP Lease", rows[7].status, f"PC-hosted DHCP environment has been audited by a read-only preflight when present. Current preflight status: `{pc_dhcp_status_value or 'MISSING'}`. No DHCP DISCOVER/OFFER/REQUEST/ACK lease run is recorded, so this remains a lease-pending or deferred item under the N03 plan. Preflight report: `{rel(pc_dhcp_report)}`.", rows),
     )
-    write(OUT / "N03_07_dhcp_uart_log.txt", f"generated={generated}\nstatus=DEFERRED_NO_PC_DHCP_SERVER\n")
-    write(OUT / "N03_07_pc_ipconfig.txt", f"generated={generated}\nstatus=DEFERRED_NO_PC_DHCP_SERVER\n")
+    write(OUT / "N03_07_dhcp_uart_log.txt", f"generated={generated}\nstatus={rows[7].status}\nreal_dhcp_discover_offer_request_ack_seen=0\npc_dhcp_preflight_summary={rel(pc_dhcp_summary)}\n")
+    write(OUT / "N03_07_pc_ipconfig.txt", f"generated={generated}\nstatus={rows[7].status}\npc_dhcp_preflight_status={pc_dhcp_status_value or 'MISSING'}\npc_dhcp_preflight_summary={rel(pc_dhcp_summary)}\npc_dhcp_preflight_report={rel(pc_dhcp_report)}\npc_dhcp_preflight_json={rel(pc_dhcp_json)}\n")
     write(
         OUT / "N03_08_network_payload_matrix_report.md",
         report_template("N03-8 Network Payload Matrix", rows[8].status, f"The full real 16..8192 byte throughput matrix is not yet run. Current offline evidence covers localhost payload matrix tooling, segmentation, ACK/RX echo, and metric capture without claiming real board throughput. Offline matrix report: `{rel(payload_matrix_report)}`.", rows),
@@ -655,6 +675,10 @@ def main() -> int:
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
+        f"- N03 PC-hosted DHCP preflight summary: `{rel(pc_dhcp_summary)}`",
+        f"- N03 PC-hosted DHCP preflight report: `{rel(pc_dhcp_report)}`",
+        f"- N03 PC-hosted DHCP preflight JSON: `{rel(pc_dhcp_json)}`",
+        f"- N03 PC-hosted DHCP preflight status: `{pc_dhcp_status_value or 'MISSING'}`",
         f"- Latest elevated static setup launch summary: `{rel(static_launch_summary)}`",
         f"- Latest non-admin static setup apply refusal summary: `{rel(static_apply_refused_summary)}`",
         f"- Latest UART boot probe summary: `{rel(uart_summary)}`",
@@ -668,7 +692,7 @@ def main() -> int:
         "",
         "## Final N03 Pass Gate",
         "",
-        "Do not mark the final N03 network-first baseline as passed until N03-1..N03-6, N03-8, and N03-9 have real board evidence with payload_mismatch=0 and reconnect/link recovery evidence. N03-7 may remain `DEFERRED_NO_PC_DHCP_SERVER` if no PC DHCP server is available.",
+        "Do not mark the final N03 network-first baseline as passed until N03-1..N03-6, N03-8, and N03-9 have real board evidence with payload_mismatch=0 and reconnect/link recovery evidence. N03-7 may remain `DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED` if no PC DHCP server is available, or `PC_DHCP_SERVER_READY_LEASE_PENDING` until a real lease and TCP HELLO/STATUS pass are captured.",
         "",
         "## Non-Claims",
         "",

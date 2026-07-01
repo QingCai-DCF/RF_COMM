@@ -1,2 +1,6 @@
-generated=2026-07-01T11:36:35
-status=DEFERRED_NO_PC_DHCP_SERVER
+generated=2026-07-01T11:42:09
+status=DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED
+pc_dhcp_preflight_status=BLOCKED_ETHERNET_LINK_DOWN
+pc_dhcp_preflight_summary=reports/n03_pc_hosted_dhcp_preflight_current.summary.txt
+pc_dhcp_preflight_report=reports/n03_pc_hosted_dhcp_preflight_current.md
+pc_dhcp_preflight_json=reports/n03_pc_hosted_dhcp_preflight_current.json
