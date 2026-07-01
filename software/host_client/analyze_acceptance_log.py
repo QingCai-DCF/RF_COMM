@@ -178,6 +178,9 @@ def main(argv: list[str]) -> int:
         f"status={analysis.effective_status_frames()} rx_data={analysis.effective_rx_data_frames()} "
         f"rx_data_bytes_rows={analysis.rx_data_bytes_from_rows} "
         f"payload_mismatch={analysis.summary_int('payload_mismatch')} "
+        f"app_tx_packets={analysis.summary_int('app_tx_packets')} "
+        f"app_tx_bytes={analysis.summary_int('app_tx_bytes')} "
+        f"app_tx_fragments={analysis.summary_int('app_tx_fragments')} "
         f"tx_mbps={analysis.summary_float('tx_mbps'):.6f} "
         f"rx_mbps={analysis.summary_float('rx_mbps'):.6f}"
     )

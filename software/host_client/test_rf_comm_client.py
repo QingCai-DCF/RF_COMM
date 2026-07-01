@@ -509,6 +509,55 @@ class RFClientOfflineTests(unittest.TestCase):
                 rx_thread.join(timeout=1.0)
             server.stop()
 
+    def test_segmented_app_payload_sends_8192_bytes_over_512_byte_frames(self) -> None:
+        server = MockRFCMServer()
+        server.start()
+        client = rf.RFClient("127.0.0.1", server.port, timeout=2.0)
+        stats = rf.Stats()
+        try:
+            client.connect()
+            rx_thread = threading.Thread(target=rf.receiver, args=(client, stats, True), daemon=True)
+            rx_thread.start()
+            sent, sent_bytes, sent_fragments = rf.run_repeated_app_tx(
+                client,
+                stats,
+                count=2,
+                duration=None,
+                app_payload_size=8192,
+                frame_payload_size=rf.MAX_FRAME_PAYLOAD,
+                interval=0.0,
+                status_interval=0.0,
+                window=1,
+                ack_timeout=2.0,
+                wait_ack=True,
+            )
+            deadline = time.monotonic() + 5.0
+            with stats.condition:
+                while stats.rx_data_frames < 32 and time.monotonic() < deadline:
+                    stats.condition.wait(0.05)
+            self.assertEqual(sent, 2)
+            self.assertEqual(sent_bytes, 16384)
+            self.assertEqual(sent_fragments, 32)
+            self.assertEqual(stats.app_tx_packets, 2)
+            self.assertEqual(stats.app_tx_bytes, 16384)
+            self.assertEqual(stats.app_tx_fragments, 32)
+            self.assertEqual(len(server.tx_payloads), 32)
+            self.assertTrue(all(len(payload) <= rf.MAX_FRAME_PAYLOAD for payload in server.tx_payloads))
+            self.assertEqual(stats.acked_tx_data, 32)
+            self.assertEqual(stats.rx_data_frames, 32)
+            self.assertEqual(stats.rx_data_bytes, 16384)
+            self.assertEqual(stats.payload_mismatch, 0)
+            self.assertIn("app_tx_packets=2", stats.summary(1.0))
+            self.assertEqual(
+                rf.evaluate_acceptance(stats, 1.0, require_clean=True, min_rx_frames=32),
+                [],
+            )
+        finally:
+            client.close()
+            with suppress(UnboundLocalError):
+                rx_thread.join(timeout=1.0)
+            server.stop()
+
     def test_acceptance_reports_timeout_pending_and_threshold_failures(self) -> None:
         stats = rf.Stats()
         stats.tx_data_bytes = 8
@@ -563,6 +612,51 @@ class RFClientOfflineTests(unittest.TestCase):
                     min_rx_mbps=None,
                 )
                 self.assertEqual(failures, [])
+        finally:
+            server.stop()
+
+    def test_csv_log_records_segmented_app_payload_summary(self) -> None:
+        server = MockRFCMServer()
+        server.start()
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                csv_path = Path(tmp_dir) / "segmented_acceptance.csv"
+                rc = rf.main([
+                    "--host", "127.0.0.1",
+                    "--port", str(server.port),
+                    "--repeat", "2",
+                    "--app-payload-size", "1024",
+                    "--payload-size", "256",
+                    "--window", "1",
+                    "--ack-timeout", "2",
+                    "--require-clean",
+                    "--min-rx-frames", "8",
+                    "--csv-log", str(csv_path),
+                    "--quiet",
+                ])
+                self.assertEqual(rc, 0)
+                analysis = ral.analyze_csv(csv_path)
+                self.assertEqual(analysis.sent_summary["sent_packets"], "2")
+                self.assertEqual(analysis.sent_summary["sent_bytes"], "2048")
+                self.assertEqual(analysis.sent_summary["fragment_frames"], "8")
+                self.assertEqual(analysis.sent_summary["frame_payload_size"], "256")
+                self.assertEqual(analysis.sent_summary["app_payload_size"], "1024")
+                self.assertEqual(analysis.summary["app_tx_packets"], "2")
+                self.assertEqual(analysis.summary["app_tx_bytes"], "2048")
+                self.assertEqual(analysis.summary["app_tx_fragments"], "8")
+                self.assertEqual(
+                    ral.evaluate_log(
+                        analysis,
+                        require_pass=True,
+                        min_duration=0.0,
+                        max_errors=0,
+                        min_status_frames=0,
+                        min_rx_frames=8,
+                        min_tx_mbps=0.0,
+                        min_rx_mbps=None,
+                    ),
+                    [],
+                )
         finally:
             server.stop()
 

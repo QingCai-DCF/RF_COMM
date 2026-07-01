@@ -15,6 +15,7 @@ param(
     [int]$DurationSeconds = 0,
     [int]$Repeat = 1000,
     [int]$PayloadSize = 248,
+    [int]$AppPayloadSize = 0,
     [ValidateSet("incremental", "synth_ramp", "zero", "ff")]
     [string]$PayloadPattern = "incremental",
     [double]$IntervalSeconds = 0.0,
@@ -263,8 +264,18 @@ function Traffic-Args {
         $effectivePayloadPattern = $PayloadPatternOverride
     }
 
+    $effectiveFramePayloadSize = $PayloadSize
+    $effectiveAppPayloadSize = $AppPayloadSize
+    if ($effectiveFramePayloadSize -gt 512 -and $effectiveAppPayloadSize -le 0) {
+        $effectiveAppPayloadSize = $effectiveFramePayloadSize
+        $effectiveFramePayloadSize = 512
+    }
+    if ($effectiveFramePayloadSize -gt 512) {
+        throw "PayloadSize is an RFCM frame payload limit and must be <= 512 when AppPayloadSize is set."
+    }
+
     $argsOut += @(
-        "--payload-size", [string]$PayloadSize,
+        "--payload-size", [string]$effectiveFramePayloadSize,
         "--payload-pattern", $effectivePayloadPattern,
         "--interval", [string]$IntervalSeconds,
         "--status-interval", [string]$StatusIntervalSeconds,
@@ -272,6 +283,9 @@ function Traffic-Args {
         "--ack-timeout", [string]$AckTimeoutSeconds,
         "--csv-log", (New-LogPath $Name)
     )
+    if ($effectiveAppPayloadSize -gt 0) {
+        $argsOut += @("--app-payload-size", [string]$effectiveAppPayloadSize)
+    }
     if (-not $VerboseFrames) {
         $argsOut += "--quiet"
     }

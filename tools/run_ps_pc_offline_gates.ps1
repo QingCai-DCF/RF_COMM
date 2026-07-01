@@ -89,7 +89,7 @@ Write-SummaryLine "REPEAT=$Repeat"
 Write-SummaryLine "PAYLOAD_SIZE=$PayloadSize"
 Write-SummaryLine "RECONNECT_CYCLES=$ReconnectCycles"
 Write-SummaryLine "TIMEOUT_SECONDS=$TimeoutSeconds"
-Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative"
+Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative;app_payload_segmentation"
 
 $overall = 0
 
@@ -98,6 +98,10 @@ if ($staticExit -ne 0 -and $overall -eq 0) { $overall = $staticExit }
 
 $unitExit = Invoke-Step -Name "host_client_unittest" -FilePath "python.exe" -Arguments @("-m", "unittest", $unitTestScript) -LogPath $unittestLog -TimeoutSecondsForStep 90
 if ($unitExit -ne 0 -and $overall -eq 0) { $overall = $unitExit }
+if ($unitExit -eq 0) {
+    Write-SummaryLine "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_PASS=1"
+    Write-SummaryLine "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_CASE=8192_bytes_over_512_byte_rfcm_frames"
+}
 
 $acceptanceExit = Invoke-Step -Name "host_offline_mock_acceptance" -FilePath "powershell.exe" -Arguments @(
     "-NoProfile",

@@ -6,5 +6,5 @@ payload_bytes,count,current_status,evidence
 128,100,REAL_BOARD_PENDING,required by plan
 256,100,REAL_BOARD_PENDING,required by plan
 512,100,REAL_BOARD_PENDING,required by plan
-1024,100,REAL_BOARD_PENDING,required by plan
-4096,100,REAL_BOARD_PENDING,required by plan
+1024,100,OFFLINE_APP_SEGMENTATION_COVERED_REAL_BOARD_PENDING,required by plan
+4096,100,OFFLINE_APP_SEGMENTATION_COVERED_REAL_BOARD_PENDING,required by plan

@@ -236,6 +236,17 @@ Continuous single-lane bring-up traffic:
 python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --repeat 1000 --payload-size 32 --window 1 --ack-timeout 3 --status-interval 1 --require-clean
 ```
 
+For N03 network-first payload matrices, `--payload-size` remains the RFCM
+frame payload size and must stay at or below 512 bytes. Use
+`--app-payload-size` for the plan-level application payload size; the host
+client splits that payload into RFCM `TX_DATA` frames and verifies every echoed
+fragment. For example, this sends two 8192-byte application payloads as
+32 total 512-byte RFCM frames:
+
+```powershell
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --repeat 2 --app-payload-size 8192 --payload-size 512 --min-rx-frames 32 --require-clean
+```
+
 Fixed-duration soak entry for later stability testing:
 
 ```powershell
@@ -248,6 +259,9 @@ application payload throughput. The CSV log records every received ACK, ERROR,
 STATUS_RSP, and RX_DATA frame for later review. It also records final
 `SENT_SUMMARY`, `SUMMARY`, and `ACCEPTANCE_PASS` or `ACCEPTANCE_FAIL` marker
 rows so long runs can be audited without preserving the terminal scrollback.
+Segmented N03 runs additionally record `app_payload_size`,
+`fragment_frames`, `app_tx_packets`, `app_tx_bytes`, and `app_tx_fragments` so
+large application payloads can be audited separately from the RFCM frame limit.
 The historical `soak_2h` name is retained only for compatibility with earlier
 scripts; the wrapper caps physical runs at 600 seconds and analyzes against a
 600-second minimum.
@@ -261,6 +275,12 @@ For repeatable board-level evidence, use the wrapper:
 .\software\host_client\run_acceptance.ps1 -Mode n03_pspl_synth -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode n03_negative -TargetHost 192.168.10.2
 .\software\host_client\run_acceptance.ps1 -Mode reconnect -TargetHost 192.168.10.2
+```
+
+For a large N03 application payload smoke through the wrapper:
+
+```powershell
+.\software\host_client\run_acceptance.ps1 -Mode n03_memory_echo -TargetHost 192.168.10.2 -Repeat 2 -PayloadSize 512 -AppPayloadSize 8192 -MinRxFrames 32
 ```
 
 Add `-MinTxMbps`, `-MinRxMbps`, or `-MinRxFrames` when a run should fail

@@ -137,6 +137,9 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "ps_lwip_bridge" / "src" / "tcp_bridge.c",
         ROOT / "software" / "ps_lwip_bridge" / "src" / "rf_protocol.h",
         ROOT / "software" / "host_client" / "rf_comm_client.py",
+        ROOT / "software" / "host_client" / "analyze_acceptance_log.py",
+        ROOT / "software" / "host_client" / "mock_rfcm_server.py",
+        ROOT / "software" / "host_client" / "test_rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
@@ -219,6 +222,7 @@ def main() -> int:
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
     synth_ok = marker(offline_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1")
     negative_ok = marker(offline_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1")
+    app_segmentation_ok = marker(offline_text, "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
     safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
     safe_blocked = marker(safe_text, "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1")
@@ -297,6 +301,13 @@ def main() -> int:
         if negative_ok and marker(offline_text, "reconnect cycle 2/2")
         else "MISSING_OR_PARTIAL"
     )
+    payload_matrix_status = (
+        "PARTIAL_OFFLINE_APP_SEGMENTATION_REAL_MATRIX_PENDING"
+        if memory_ok and synth_ok and app_segmentation_ok
+        else "PARTIAL_OFFLINE_REAL_MATRIX_PENDING"
+        if memory_ok and synth_ok
+        else "MISSING_OFFLINE_EVIDENCE"
+    )
     safe_evidence_parts = [
         rel(static_net_summary) if static_net_summary is not None else "MISSING_N03_STATIC_DIRECT_PREFLIGHT",
         rel(safe_summary) if safe_summary is not None else "MISSING_N03_SAFE_ACCEPTANCE",
@@ -372,10 +383,10 @@ def main() -> int:
         StageRow(
             "N03-8",
             "payload matrix and throughput",
-            "PARTIAL_OFFLINE_REAL_MATRIX_PENDING" if memory_ok and synth_ok else "MISSING_OFFLINE_EVIDENCE",
+            payload_matrix_status,
             rel(offline_summary),
             "real board 16..8192 byte payload matrix and throughput CSV",
-            "offline smoke payloads only",
+            "offline app-payload segmentation/tooling only; no real throughput pass",
         ),
         StageRow(
             "N03-9",
@@ -447,7 +458,16 @@ def main() -> int:
     write_csv(
         OUT / "N03_04_pc_ps_memory_echo_matrix.csv",
         [
-            {"payload_bytes": str(size), "count": "100", "current_status": "REAL_BOARD_PENDING", "evidence": "required by plan"}
+            {
+                "payload_bytes": str(size),
+                "count": "100",
+                "current_status": (
+                    "OFFLINE_APP_SEGMENTATION_COVERED_REAL_BOARD_PENDING"
+                    if app_segmentation_ok and size > 512
+                    else "REAL_BOARD_PENDING"
+                ),
+                "evidence": "required by plan",
+            }
             for size in (1, 8, 16, 64, 128, 256, 512, 1024, 4096)
         ],
     )
@@ -482,12 +502,21 @@ def main() -> int:
     write(OUT / "N03_07_pc_ipconfig.txt", f"generated={generated}\nstatus=DEFERRED_NO_PC_DHCP_SERVER\n")
     write(
         OUT / "N03_08_network_payload_matrix_report.md",
-        report_template("N03-8 Network Payload Matrix", rows[8].status, "The full real 16..8192 byte throughput matrix is not yet run. Current evidence is offline smoke coverage only.", rows),
+        report_template("N03-8 Network Payload Matrix", rows[8].status, "The full real 16..8192 byte throughput matrix is not yet run. Current offline evidence covers command/mode plumbing plus segmented application payload tooling for payloads larger than the 512-byte RFCM frame limit.", rows),
     )
     write_csv(
         OUT / "N03_08_network_payload_matrix.csv",
         [
-            {"mode": mode, "payload_bytes": str(size), "seconds": "60", "current_status": "REAL_BOARD_PENDING"}
+            {
+                "mode": mode,
+                "payload_bytes": str(size),
+                "seconds": "60",
+                "current_status": (
+                    "OFFLINE_APP_SEGMENTATION_COVERED_REAL_BOARD_PENDING"
+                    if app_segmentation_ok and size > 512
+                    else "REAL_BOARD_PENDING"
+                ),
+            }
             for mode in ("pc_ps_memory_echo", "pc_ps_pl_synth_loopback")
             for size in (16, 64, 128, 256, 512, 1024, 4096, 8192)
         ],
@@ -530,6 +559,7 @@ def main() -> int:
         "## Current Source/Offline Evidence",
         "",
         f"- Offline summary: `{rel(offline_summary)}`",
+        f"- Offline app payload segmentation: `{'PASS' if app_segmentation_ok else 'MISSING'}` (`8192_bytes_over_512_byte_rfcm_frames` when present)",
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",

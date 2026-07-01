@@ -190,19 +190,20 @@ function Invoke-PayloadCase {
     )
     $frameSize = [Math]::Min($PayloadBytes, $framePayloadBytes)
     $framesPerPayload = [int][Math]::Ceiling([double]$PayloadBytes / [double]$frameSize)
-    $repeat = [Math]::Max(1, $framesPerPayload * $Count)
+    $minRxFrames = [Math]::Max(1, $framesPerPayload * $Count)
     $name = "{0}_{1}_{2}" -f $NamePrefix, $Mode, $PayloadBytes
     $args = @(
         "-Mode", $Mode,
         "-TargetHost", $TargetHost,
         "-Port", [string]$Port,
         "-TimeoutSeconds", [string]$TimeoutSeconds,
-        "-Repeat", [string]$repeat,
+        "-Repeat", [string]$Count,
         "-PayloadSize", [string]$frameSize,
+        "-AppPayloadSize", [string]$PayloadBytes,
         "-PayloadPattern", $Pattern,
-        "-MinRxFrames", [string]$repeat
+        "-MinRxFrames", [string]$minRxFrames
     )
-    $timeout = [int]([Math]::Max(60.0, ($TimeoutSeconds + 2.0) * $repeat + 30.0))
+    $timeout = [int]([Math]::Max(60.0, ($TimeoutSeconds + 2.0) * $minRxFrames + 30.0))
     return Invoke-Acceptance -Name $name -Arguments $args -TimeoutSecondsForStep $timeout
 }
 
@@ -224,6 +225,7 @@ function Invoke-DurationCase {
         "-TimeoutSeconds", [string]$TimeoutSeconds,
         "-DurationSeconds", [string]$effectiveSeconds,
         "-PayloadSize", [string]$frameSize,
+        "-AppPayloadSize", [string]$PayloadBytes,
         "-PayloadPattern", $Pattern,
         "-StatusIntervalSeconds", "5"
     )

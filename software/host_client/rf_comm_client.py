@@ -62,6 +62,7 @@ MAX_PAYLOAD = MAX_FRAME_PAYLOAD
 MAX_GENERATED_PAYLOAD = int(
     os.environ.get("RF_COMM_MAX_GENERATED_PAYLOAD", str(MAX_FRAME_PAYLOAD))
 )
+MAX_APP_PAYLOAD = int(os.environ.get("RF_COMM_MAX_APP_PAYLOAD", "8192"))
 
 STATUS_FIELDS_BASE = (
     "status",
@@ -128,6 +129,9 @@ class Stats:
     acked_tx_data: int = 0
     failed_tx_data: int = 0
     ack_timeouts: int = 0
+    app_tx_packets: int = 0
+    app_tx_bytes: int = 0
+    app_tx_fragments: int = 0
     rtt_min: float | None = None
     rtt_max: float = 0.0
     rtt_sum: float = 0.0
@@ -149,6 +153,13 @@ class Stats:
                 self.tx_data_bytes += payload_len
                 self.expected_rx_payloads.append(bytes(payload))
             self.pending[seq] = (frame_type, now)
+            self.condition.notify_all()
+
+    def mark_app_payload_sent(self, payload_len: int, fragment_count: int) -> None:
+        with self.condition:
+            self.app_tx_packets += 1
+            self.app_tx_bytes += payload_len
+            self.app_tx_fragments += fragment_count
             self.condition.notify_all()
 
     def mark_received(self, frame: Frame) -> None:
@@ -243,6 +254,9 @@ class Stats:
         return (
             f"elapsed_s={elapsed:.3f} "
             f"tx_packets={self.tx_data_frames} tx_bytes={self.tx_data_bytes} "
+            f"app_tx_packets={self.app_tx_packets} "
+            f"app_tx_bytes={self.app_tx_bytes} "
+            f"app_tx_fragments={self.app_tx_fragments} "
             f"tx_mbps={tx_mbps:.6f} acked_tx={self.acked_tx_data} "
             f"failed_tx={self.failed_tx_data} ack_timeouts={self.ack_timeouts} "
             f"rx_frames={self.rx_frames} ack={self.ack_frames} "
@@ -594,6 +608,63 @@ def run_repeated_tx(client: RFClient, stats: Stats, count: int,
     return sent, sent_bytes
 
 
+def send_segmented_payload(client: RFClient, stats: Stats, payload: bytes,
+                           frame_payload_size: int, window: int,
+                           ack_timeout: float, wait_ack: bool) -> tuple[int, bool]:
+    if frame_payload_size <= 0 or frame_payload_size > MAX_FRAME_PAYLOAD:
+        raise ValueError(f"frame payload size must be in the range 1..{MAX_FRAME_PAYLOAD}")
+    fragments = 0
+    for offset in range(0, len(payload), frame_payload_size):
+        if wait_ack and not stats.wait_for_tx_window(window, ack_timeout):
+            return fragments, False
+        send_tracked(client, stats, FRAME_TX_DATA, payload[offset:offset + frame_payload_size])
+        fragments += 1
+    return fragments, True
+
+
+def run_repeated_app_tx(client: RFClient, stats: Stats, count: int,
+                        duration: float | None, app_payload_size: int,
+                        frame_payload_size: int, interval: float,
+                        status_interval: float, window: int,
+                        ack_timeout: float, wait_ack: bool,
+                        payload_pattern: str = "incremental") -> tuple[int, int, int]:
+    sent = 0
+    sent_bytes = 0
+    sent_fragments = 0
+    start = time.monotonic()
+    next_status = start + status_interval if status_interval > 0 else None
+
+    while client.running:
+        now = time.monotonic()
+        if count > 0 and sent >= count:
+            break
+        if duration is not None and (now - start) >= duration:
+            break
+
+        if next_status is not None and now >= next_status:
+            send_tracked(client, stats, FRAME_STATUS_REQ)
+            next_status = now + status_interval
+
+        payload = make_payload(sent, app_payload_size, payload_pattern)
+        fragment_count, ok = send_segmented_payload(
+            client, stats, payload, frame_payload_size, window,
+            ack_timeout, wait_ack
+        )
+        if not ok:
+            print("ack timeout while waiting for segmented TX window")
+            break
+        stats.mark_app_payload_sent(len(payload), fragment_count)
+        sent += 1
+        sent_bytes += len(payload)
+        sent_fragments += fragment_count
+        if interval > 0:
+            time.sleep(interval)
+
+    if wait_ack:
+        stats.wait_for_all_tx_data(ack_timeout)
+    return sent, sent_bytes, sent_fragments
+
+
 def mbps(byte_count: int, elapsed: float) -> float:
     return (byte_count * 8.0) / max(elapsed, 1e-9) / 1_000_000.0
 
@@ -732,6 +803,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--repeat", type=int, default=0, help="send this many generated TX_DATA packets")
     parser.add_argument("--duration", type=float, help="send generated TX_DATA packets for this many seconds")
     parser.add_argument("--payload-size", type=int, default=32, help=f"generated TX_DATA payload bytes, max {MAX_GENERATED_PAYLOAD}")
+    parser.add_argument("--app-payload-size", type=int, help=f"application payload bytes before RFCM segmentation, max {MAX_APP_PAYLOAD}")
     parser.add_argument("--payload-pattern", choices=("incremental", "synth_ramp", "zero", "ff"), default="incremental")
     parser.add_argument("--interval", type=float, default=0.0, help="delay between generated packets")
     parser.add_argument("--status-interval", type=float, default=0.0, help="periodically request status while repeating")
@@ -751,6 +823,11 @@ def main(argv: list[str]) -> int:
 
     if args.payload_size <= 0 or args.payload_size > MAX_GENERATED_PAYLOAD:
         parser.error(f"--payload-size must be in the range 1..{MAX_GENERATED_PAYLOAD}")
+    if args.app_payload_size is not None:
+        if args.app_payload_size <= 0 or args.app_payload_size > MAX_APP_PAYLOAD:
+            parser.error(f"--app-payload-size must be in the range 1..{MAX_APP_PAYLOAD}")
+        if args.repeat <= 0 and args.duration is None:
+            parser.error("--app-payload-size requires --repeat or --duration")
     if args.window <= 0:
         parser.error("--window must be positive")
     if args.ack_timeout <= 0:
@@ -815,13 +892,23 @@ def main(argv: list[str]) -> int:
     repeated = args.repeat > 0 or args.duration is not None
     sent = 0
     sent_bytes = 0
+    sent_fragments = 0
     if repeated:
-        sent, sent_bytes = run_repeated_tx(
-            client, stats, args.repeat, args.duration, args.payload_size,
-            args.interval, args.status_interval, args.window,
-            args.ack_timeout, not args.no_wait_ack,
-            args.payload_pattern
-        )
+        if args.app_payload_size is None:
+            sent, sent_bytes = run_repeated_tx(
+                client, stats, args.repeat, args.duration, args.payload_size,
+                args.interval, args.status_interval, args.window,
+                args.ack_timeout, not args.no_wait_ack,
+                args.payload_pattern
+            )
+            sent_fragments = sent
+        else:
+            sent, sent_bytes, sent_fragments = run_repeated_app_tx(
+                client, stats, args.repeat, args.duration, args.app_payload_size,
+                args.payload_size, args.interval, args.status_interval,
+                args.window, args.ack_timeout, not args.no_wait_ack,
+                args.payload_pattern
+            )
 
     one_shot = any((
         args.hello,
@@ -849,6 +936,9 @@ def main(argv: list[str]) -> int:
             sent_summary = (
                 "sent_summary "
                 f"sent_packets={sent} sent_bytes={sent_bytes} "
+                f"fragment_frames={sent_fragments} "
+                f"frame_payload_size={args.payload_size} "
+                f"app_payload_size={args.app_payload_size or 0} "
             )
             summary = "summary " + stats.summary(elapsed)
             print(sent_summary)
