@@ -39,7 +39,7 @@
     "when": "Only if N03-7 is required and PC DHCP service is intentionally configured",
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\tools\\check_n03_pc_hosted_dhcp_preflight.ps1",
     "expected_evidence": "reports/n03_pc_hosted_dhcp_preflight_current.summary.txt",
-    "pass_boundary": "Preflight is not a lease pass; lease pass requires DISCOVER/OFFER/REQUEST/ACK and TCP HELLO/STATUS"
+    "pass_boundary": "Preflight is not a lease pass; next_action=configure_windows_ics_or_standalone_dhcp_server; lease pass requires DISCOVER/OFFER/REQUEST/ACK and TCP HELLO/STATUS"
   },
   {
     "step": "5_rebuild_package",

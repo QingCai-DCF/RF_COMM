@@ -79,6 +79,18 @@ function ConvertTo-ServiceObject {
     }
 }
 
+function ConvertTo-IcsSharingType {
+    param($Type)
+    if ($null -eq $Type) {
+        return "none"
+    }
+    switch ([int]$Type) {
+        0 { return "public" }
+        1 { return "private" }
+        default { return "unknown_$Type" }
+    }
+}
+
 "N03_PC_HOSTED_DHCP_PREFLIGHT_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding utf8
 Write-SummaryLine "REPO_ROOT=$repoRoot"
 Write-SummaryLine "INTERFACE_ALIAS_ARG=$InterfaceAlias"
@@ -164,6 +176,52 @@ Write-SummaryLine "ICS_SERVICE_STATUS=$($icsServiceObject.status)"
 Write-SummaryLine "DHCP_SERVER_SERVICE_PRESENT=$([int]($null -ne $dhcpServerService))"
 Write-SummaryLine "DHCP_SERVER_SERVICE_STATUS=$($dhcpServerServiceObject.status)"
 
+$icsSharingRows = @()
+$icsSharingQueryOk = $false
+$icsSharingQueryError = ""
+$icsSharingQueryRequiresAdmin = $false
+try {
+    $shareManager = New-Object -ComObject "HNetCfg.HNetShare"
+    $connections = @($shareManager.EnumEveryConnection())
+    foreach ($connection in $connections) {
+        $props = $null
+        $config = $null
+        try { $props = $shareManager.NetConnectionProps($connection) } catch { $props = $null }
+        try { $config = $shareManager.INetSharingConfigurationForINetConnection($connection) } catch { $config = $null }
+        $sharingEnabled = ($null -ne $config -and [bool]$config.SharingEnabled)
+        $sharingType = if ($sharingEnabled) { ConvertTo-IcsSharingType $config.SharingConnectionType } else { "none" }
+        $name = if ($null -ne $props) { [string]$props.Name } else { "unknown" }
+        $device = if ($null -ne $props) { [string]$props.DeviceName } else { "" }
+        $guid = if ($null -ne $props) { [string]$props.Guid } else { "" }
+        $statusText = if ($null -ne $props) { [string]$props.Status } else { "" }
+        $icsSharingRows += [pscustomobject]@{
+            name = $name
+            device_name = $device
+            guid = $guid
+            status = $statusText
+            sharing_enabled = [bool]$sharingEnabled
+            sharing_type = $sharingType
+        }
+    }
+    $icsSharingQueryOk = $true
+} catch {
+    $icsSharingQueryError = [string]$_.Exception.Message
+    $icsSharingQueryRequiresAdmin = ($icsSharingQueryError -match "Access is denied|E_ACCESSDENIED|0x80070005")
+}
+$icsPrivateRows = @($icsSharingRows | Where-Object { $_.sharing_enabled -and $_.sharing_type -eq "private" })
+$icsPublicRows = @($icsSharingRows | Where-Object { $_.sharing_enabled -and $_.sharing_type -eq "public" })
+$icsPrivateSelected = @($icsPrivateRows | Where-Object { $_.name -eq $selectedName }).Count -gt 0
+Write-SummaryLine "ICS_SHARING_QUERY_OK=$([int]$icsSharingQueryOk)"
+Write-SummaryLine "ICS_SHARING_QUERY_REQUIRES_ADMIN=$([int]$icsSharingQueryRequiresAdmin)"
+if ($icsSharingQueryError -ne "") { Write-SummaryLine "ICS_SHARING_QUERY_ERROR=$icsSharingQueryError" }
+Write-SummaryLine "ICS_SHARING_CONNECTION_COUNT=$($icsSharingRows.Count)"
+Write-SummaryLine "ICS_PRIVATE_INTERFACE_SELECTED=$([int]$icsPrivateSelected)"
+Write-SummaryLine "ICS_PRIVATE_INTERFACES=$(if ($icsPrivateRows.Count) { ($icsPrivateRows | ForEach-Object { $_.name }) -join ',' } else { 'none' })"
+Write-SummaryLine "ICS_PUBLIC_INTERFACES=$(if ($icsPublicRows.Count) { ($icsPublicRows | ForEach-Object { $_.name }) -join ',' } else { 'none' })"
+foreach ($row in $icsSharingRows | Where-Object { $_.sharing_enabled }) {
+    Write-SummaryLine "ICS_SHARING_ENABLED=$($row.name):$($row.sharing_type):$($row.status)"
+}
+
 $udp67Endpoints = @()
 try {
     $udp67Endpoints = @(Get-NetUDPEndpoint -LocalPort 67 -ErrorAction SilentlyContinue)
@@ -206,6 +264,24 @@ if ($null -eq $selected) {
     $status = "BLOCKED_ETHERNET_LINK_DOWN"
 }
 
+$nextAction = "capture_dhcp_lease_and_tcp_hello"
+if (-not $serverReady) {
+    if (-not $dhcpServerDetected -and -not $dhcpSubnetReady) {
+        $nextAction = "configure_windows_ics_or_standalone_dhcp_server"
+    } elseif (-not $dhcpServerDetected) {
+        $nextAction = "start_or_configure_pc_dhcp_server"
+    } elseif (-not $dhcpSubnetReady) {
+        $nextAction = "assign_pc_dhcp_server_subnet_ip"
+    } else {
+        $nextAction = "clear_preflight_blockers"
+    }
+}
+$standaloneIpCommand = if ($selectedName -ne "NONE") {
+    "New-NetIPAddress -InterfaceAlias `"$selectedName`" -IPAddress $StandaloneServerIp -PrefixLength $PrefixLength -SkipAsSource `$false"
+} else {
+    ""
+}
+
 Write-SummaryLine "N03_PC_HOSTED_DHCP_SERVER_DETECTED=$([int]$dhcpServerDetected)"
 Write-SummaryLine "N03_PC_HOSTED_DHCP_SERVER_READY=$([int]$serverReady)"
 Write-SummaryLine "N03_PC_HOSTED_DHCP_DISCOVER_OBSERVED=0"
@@ -216,6 +292,9 @@ Write-SummaryLine "N03_PC_HOSTED_DHCP_LEASE_PASS=0"
 foreach ($reason in $blockers) {
     Write-SummaryLine "N03_PC_HOSTED_DHCP_PREFLIGHT_BLOCKER=$reason"
 }
+Write-SummaryLine "N03_PC_HOSTED_DHCP_NEXT_ACTION=$nextAction"
+Write-SummaryLine "N03_PC_HOSTED_DHCP_STANDALONE_IP_COMMAND=$standaloneIpCommand"
+Write-SummaryLine "N03_PC_HOSTED_DHCP_ICS_GUI_COMMAND=control.exe ncpa.cpl"
 Write-SummaryLine "N03_PC_HOSTED_DHCP_PREFLIGHT_STATUS=$status"
 Write-SummaryLine "N03_PC_HOSTED_DHCP_PREFLIGHT_COMPLETE=1"
 Write-SummaryLine "N03_PC_HOSTED_DHCP_PREFLIGHT_END $(Get-Date -Format o)"
@@ -248,7 +327,21 @@ $payload = [ordered]@{
         shared_access_ics = $icsServiceObject
         dhcp_server = $dhcpServerServiceObject
     }
+    ics_sharing = [ordered]@{
+        query_ok = [bool]$icsSharingQueryOk
+        query_requires_admin = [bool]$icsSharingQueryRequiresAdmin
+        query_error = $icsSharingQueryError
+        private_interface_selected = [bool]$icsPrivateSelected
+        private_interfaces = @($icsPrivateRows | ForEach-Object { $_.name })
+        public_interfaces = @($icsPublicRows | ForEach-Object { $_.name })
+        connections = $icsSharingRows
+    }
     udp67 = $udp67ProcessRows
+    next_action = [ordered]@{
+        action = $nextAction
+        standalone_ip_command = $standaloneIpCommand
+        ics_gui_command = "control.exe ncpa.cpl"
+    }
     markers = [ordered]@{
         read_only = $true
         no_network_config_change = $true
@@ -279,6 +372,11 @@ $md = @(
     "- Adapter status: $selectedStatus",
     "- Adapter link speed: $selectedSpeed",
     "- ICS service status: $($icsServiceObject.status)",
+    "- ICS sharing query ok: $icsSharingQueryOk",
+    "- ICS sharing query requires admin: $icsSharingQueryRequiresAdmin",
+    "- ICS private interface selected: $icsPrivateSelected",
+    "- ICS private interfaces: $(if ($icsPrivateRows.Count) { ($icsPrivateRows | ForEach-Object { $_.name }) -join ', ' } else { 'none' })",
+    "- ICS public interfaces: $(if ($icsPublicRows.Count) { ($icsPublicRows | ForEach-Object { $_.name }) -join ', ' } else { 'none' })",
     "- DHCP Server service status: $($dhcpServerServiceObject.status)",
     "- UDP 67 listener count: $($udp67Endpoints.Count)",
     "- ICS subnet IP present: $icsSubnetPresent ($IcsServerIp/$PrefixLength)",
@@ -287,6 +385,9 @@ $md = @(
     "- Server ready for board lease attempt: $serverReady",
     "- Lease pass: false",
     "- Blockers: $(if ($blockers.Count) { $blockers -join ', ' } else { 'none' })",
+    "- Next action: $nextAction",
+    "- Standalone server IP command: $standaloneIpCommand",
+    "- ICS GUI command: control.exe ncpa.cpl",
     "",
     "Required real N03-7 evidence remains DHCP DISCOVER/OFFER/REQUEST/ACK, a board IP in the configured pool, and a TCP HELLO/STATUS pass to the leased board IP.",
     "",

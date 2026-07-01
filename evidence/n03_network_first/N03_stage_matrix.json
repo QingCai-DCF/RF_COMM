@@ -59,7 +59,7 @@
     "item": "N03-7",
     "title": "PC-hosted DHCP lease",
     "status": "DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED",
-    "evidence": "reports/n03_pc_hosted_dhcp_preflight_current.summary.txt; reports/n03_pc_hosted_dhcp_preflight_current.md; reports/n03_pc_hosted_dhcp_preflight_current.json; status=DEFERRED_NO_PC_DHCP_SERVER",
+    "evidence": "reports/n03_pc_hosted_dhcp_preflight_current.summary.txt; reports/n03_pc_hosted_dhcp_preflight_current.md; reports/n03_pc_hosted_dhcp_preflight_current.json; status=DEFERRED_NO_PC_DHCP_SERVER; next_action=configure_windows_ics_or_standalone_dhcp_server; ics_query_requires_admin=1",
     "next_required_evidence": "DHCP DISCOVER/OFFER/REQUEST/ACK and board IP in pool",
     "allowed_claim": "PC DHCP preflight only; no DHCP lease pass"
   },

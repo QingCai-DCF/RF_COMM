@@ -1,4 +1,4 @@
-generated=2026-07-01T12:47:54
+generated=2026-07-01T12:53:40
 status=BLOCKED_PC_STATIC_IP_NOT_CONFIGURED
 target=192.168.10.2:5001
 target_hints=static_expected=192.168.10.2

@@ -319,6 +319,10 @@ def main() -> int:
     pc_dhcp_preflight_complete = marker(pc_dhcp_text, "N03_PC_HOSTED_DHCP_PREFLIGHT_COMPLETE=1")
     pc_dhcp_server_ready = marker(pc_dhcp_text, "N03_PC_HOSTED_DHCP_SERVER_READY=1")
     pc_dhcp_status_value = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_PREFLIGHT_STATUS")
+    pc_dhcp_next_action = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_NEXT_ACTION")
+    pc_dhcp_standalone_ip_command = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_STANDALONE_IP_COMMAND")
+    pc_dhcp_ics_gui_command = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_ICS_GUI_COMMAND")
+    pc_dhcp_ics_query_requires_admin = marker(pc_dhcp_text, "ICS_SHARING_QUERY_REQUIRES_ADMIN=1")
     reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
     safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
@@ -451,7 +455,9 @@ def main() -> int:
         else "DEFERRED_NO_PC_DHCP_SERVER"
     )
     pc_dhcp_evidence = (
-        f"{rel(pc_dhcp_summary)}; {rel(pc_dhcp_report)}; {rel(pc_dhcp_json)}; status={pc_dhcp_status_value or 'MISSING'}"
+        f"{rel(pc_dhcp_summary)}; {rel(pc_dhcp_report)}; {rel(pc_dhcp_json)}; "
+        f"status={pc_dhcp_status_value or 'MISSING'}; next_action={pc_dhcp_next_action or 'MISSING'}; "
+        f"ics_query_requires_admin={int(pc_dhcp_ics_query_requires_admin)}"
         if pc_dhcp_preflight_complete
         else "no PC DHCP server run recorded"
     )
@@ -652,10 +658,21 @@ def main() -> int:
     )
     write(
         OUT / "N03_07_pc_hosted_dhcp_lease_report.md",
-        report_template("N03-7 PC-hosted DHCP Lease", rows[7].status, f"PC-hosted DHCP environment has been audited by a read-only preflight when present. Current preflight status: `{pc_dhcp_status_value or 'MISSING'}`. No DHCP DISCOVER/OFFER/REQUEST/ACK lease run is recorded, so this remains a lease-pending or deferred item under the N03 plan. Preflight report: `{rel(pc_dhcp_report)}`.", rows),
+        report_template(
+            "N03-7 PC-hosted DHCP Lease",
+            rows[7].status,
+            f"PC-hosted DHCP environment has been audited by a read-only preflight when present. Current preflight status: `{pc_dhcp_status_value or 'MISSING'}`. Next action: `{pc_dhcp_next_action or 'MISSING'}`. ICS sharing query requires admin: `{int(pc_dhcp_ics_query_requires_admin)}`. Standalone DHCP subnet command: `{pc_dhcp_standalone_ip_command or 'not captured'}`. ICS GUI command: `{pc_dhcp_ics_gui_command or 'not captured'}`. No DHCP DISCOVER/OFFER/REQUEST/ACK lease run is recorded, so this remains a lease-pending or deferred item under the N03 plan. Preflight report: `{rel(pc_dhcp_report)}`.",
+            rows,
+        ),
     )
-    write(OUT / "N03_07_dhcp_uart_log.txt", f"generated={generated}\nstatus={rows[7].status}\nreal_dhcp_discover_offer_request_ack_seen=0\npc_dhcp_preflight_summary={rel(pc_dhcp_summary)}\n")
-    write(OUT / "N03_07_pc_ipconfig.txt", f"generated={generated}\nstatus={rows[7].status}\npc_dhcp_preflight_status={pc_dhcp_status_value or 'MISSING'}\npc_dhcp_preflight_summary={rel(pc_dhcp_summary)}\npc_dhcp_preflight_report={rel(pc_dhcp_report)}\npc_dhcp_preflight_json={rel(pc_dhcp_json)}\n")
+    write(
+        OUT / "N03_07_dhcp_uart_log.txt",
+        f"generated={generated}\nstatus={rows[7].status}\nreal_dhcp_discover_offer_request_ack_seen=0\npc_dhcp_preflight_summary={rel(pc_dhcp_summary)}\npc_dhcp_next_action={pc_dhcp_next_action or 'MISSING'}\n",
+    )
+    write(
+        OUT / "N03_07_pc_ipconfig.txt",
+        f"generated={generated}\nstatus={rows[7].status}\npc_dhcp_preflight_status={pc_dhcp_status_value or 'MISSING'}\npc_dhcp_next_action={pc_dhcp_next_action or 'MISSING'}\npc_dhcp_ics_query_requires_admin={int(pc_dhcp_ics_query_requires_admin)}\npc_dhcp_standalone_ip_command={pc_dhcp_standalone_ip_command}\npc_dhcp_ics_gui_command={pc_dhcp_ics_gui_command}\npc_dhcp_preflight_summary={rel(pc_dhcp_summary)}\npc_dhcp_preflight_report={rel(pc_dhcp_report)}\npc_dhcp_preflight_json={rel(pc_dhcp_json)}\n",
+    )
     write(
         OUT / "N03_08_network_payload_matrix_report.md",
         report_template("N03-8 Network Payload Matrix", rows[8].status, f"The full real 16..8192 byte throughput matrix is not yet run. Current offline evidence covers localhost payload matrix tooling, segmentation, ACK/RX echo, and metric capture without claiming real board throughput. Offline matrix report: `{rel(payload_matrix_report)}`.", rows),
@@ -769,7 +786,7 @@ def main() -> int:
             "when": "Only if N03-7 is required and PC DHCP service is intentionally configured",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\tools\\check_n03_pc_hosted_dhcp_preflight.ps1",
             "expected_evidence": rel(pc_dhcp_summary),
-            "pass_boundary": "Preflight is not a lease pass; lease pass requires DISCOVER/OFFER/REQUEST/ACK and TCP HELLO/STATUS",
+            "pass_boundary": f"Preflight is not a lease pass; next_action={pc_dhcp_next_action or 'MISSING'}; lease pass requires DISCOVER/OFFER/REQUEST/ACK and TCP HELLO/STATUS",
         },
         {
             "step": "5_rebuild_package",
@@ -797,6 +814,10 @@ def main() -> int:
         f"- Local TCP 5001 discovery candidates: `{local_tcp_candidates_text}`",
         f"- UART board IP hint: `{uart_board_ip_hint or 'none'}`",
         f"- Candidate target command: `{candidate_acceptance_command}`",
+        f"- N03 PC-hosted DHCP next action: `{pc_dhcp_next_action or 'MISSING'}`",
+        f"- N03 PC-hosted DHCP ICS query requires admin: `{int(pc_dhcp_ics_query_requires_admin)}`",
+        f"- N03 PC-hosted DHCP standalone IP command: `{pc_dhcp_standalone_ip_command or 'not captured'}`",
+        f"- N03 PC-hosted DHCP ICS GUI command: `{pc_dhcp_ics_gui_command or 'not captured'}`",
         f"- Current runbook: `{runbook_overall}`",
         f"- Current blocker: `{blocker_note}`",
         f"- Latest elevated static setup pending or declined: `{int(launch_pending)}`",
@@ -882,6 +903,10 @@ def main() -> int:
         f"- N03 PC-hosted DHCP preflight report: `{rel(pc_dhcp_report)}`",
         f"- N03 PC-hosted DHCP preflight JSON: `{rel(pc_dhcp_json)}`",
         f"- N03 PC-hosted DHCP preflight status: `{pc_dhcp_status_value or 'MISSING'}`",
+        f"- N03 PC-hosted DHCP next action: `{pc_dhcp_next_action or 'MISSING'}`",
+        f"- N03 PC-hosted DHCP ICS query requires admin: `{int(pc_dhcp_ics_query_requires_admin)}`",
+        f"- N03 PC-hosted DHCP standalone IP command: `{pc_dhcp_standalone_ip_command or 'not captured'}`",
+        f"- N03 PC-hosted DHCP ICS GUI command: `{pc_dhcp_ics_gui_command or 'not captured'}`",
         f"- N03 readiness audit report: `{rel(readiness_report)}`",
         f"- N03 readiness audit CSV: `{rel(readiness_csv)}`",
         f"- N03 readiness audit JSON: `{rel(readiness_json)}`",
