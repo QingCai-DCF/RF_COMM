@@ -1,6 +1,6 @@
 # N03-1 Static IP Direct Smoke
 
-Generated: 2026-07-01T12:28:57
+Generated: 2026-07-01T12:35:01
 
 Verdict: `BLOCKED_PC_STATIC_IP_NOT_CONFIGURED`
 

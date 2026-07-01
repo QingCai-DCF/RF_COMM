@@ -158,6 +158,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "tools" / "audit_n03_network_first_readiness.py",
         ROOT / "tools" / "run_n03_current_state_gate.ps1",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
+        ROOT / "tools" / "apply_n03_static_direct_network_admin.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
         ROOT / "tools" / "run_ps_pc_offline_gates.ps1",
@@ -679,6 +680,10 @@ def main() -> int:
         "powershell -NoProfile -ExecutionPolicy Bypass -File "
         ".\\tools\\run_n03_current_state_gate.ps1 -TimeoutSeconds 3"
     )
+    admin_static_apply_command = (
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        ".\\tools\\apply_n03_static_direct_network_admin.ps1"
+    )
     real_acceptance_command = (
         "powershell -NoProfile -ExecutionPolicy Bypass -File "
         ".\\tools\\run_n03_network_first_acceptance_safe.ps1 "
@@ -690,7 +695,7 @@ def main() -> int:
         {
             "step": "0_connect_and_prepare",
             "when": "Before any real N03 acceptance run",
-            "command": elevated_uac_command or static_apply_command or "configure PC Ethernet as 192.168.10.1/24",
+            "command": admin_static_apply_command,
             "expected_evidence": rel(static_net_summary),
             "pass_boundary": "PC_ETHERNET_LINK_UP=1 and PC_EXPECTED_STATIC_IP_PRESENT=1 only; no board TCP pass yet",
         },
@@ -824,6 +829,7 @@ def main() -> int:
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
+        "- N03 static direct admin apply helper: `tools/apply_n03_static_direct_network_admin.ps1`",
         f"- N03 PC-hosted DHCP preflight summary: `{rel(pc_dhcp_summary)}`",
         f"- N03 PC-hosted DHCP preflight report: `{rel(pc_dhcp_report)}`",
         f"- N03 PC-hosted DHCP preflight JSON: `{rel(pc_dhcp_json)}`",

@@ -2,7 +2,7 @@
   {
     "step": "0_connect_and_prepare",
     "when": "Before any real N03 acceptance run",
-    "command": "Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\\Users\\user\\Documents\\RF_COMM\\tools\\setup_n03_static_direct_network_safe.ps1 -InterfaceAlias \u4ee5\u592a\u7f51 -ExpectedPcIp 192.168.10.1 -PrefixLength 24 -TargetHost 192.168.10.2 -Port 5001 -TimeoutMs 3000 -Apply -AddFirewallRule' -Verb RunAs",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\tools\\apply_n03_static_direct_network_admin.ps1",
     "expected_evidence": "reports/n03_static_direct_network_preflight_current.summary.txt",
     "pass_boundary": "PC_ETHERNET_LINK_UP=1 and PC_EXPECTED_STATIC_IP_PRESENT=1 only; no board TCP pass yet"
   },

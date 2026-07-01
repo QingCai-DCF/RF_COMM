@@ -1,4 +1,4 @@
-generated=2026-07-01T12:28:57
+generated=2026-07-01T12:35:01
 status=DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED
 real_dhcp_discover_offer_request_ack_seen=0
 pc_dhcp_preflight_summary=reports/n03_pc_hosted_dhcp_preflight_current.summary.txt

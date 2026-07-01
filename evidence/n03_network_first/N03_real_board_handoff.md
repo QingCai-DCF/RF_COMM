@@ -1,6 +1,6 @@
 # N03 Real Board Handoff
 
-Generated: 2026-07-01T12:28:57
+Generated: 2026-07-01T12:35:01
 
 This handoff is the ordered entry point for continuing the N03 network-first plan once the board Ethernet link is available. It does not configure networking, run hardware, or claim a real-board pass by itself.
 
@@ -16,7 +16,7 @@ This handoff is the ordered entry point for continuing the N03 network-first pla
 
 | step | when | command | expected evidence | pass boundary |
 | --- | --- | --- | --- | --- |
-| 0_connect_and_prepare | Before any real N03 acceptance run | Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\Users\user\Documents\RF_COMM\tools\setup_n03_static_direct_network_safe.ps1 -InterfaceAlias 以太网 -ExpectedPcIp 192.168.10.1 -PrefixLength 24 -TargetHost 192.168.10.2 -Port 5001 -TimeoutMs 3000 -Apply -AddFirewallRule' -Verb RunAs | reports/n03_static_direct_network_preflight_current.summary.txt | PC_ETHERNET_LINK_UP=1 and PC_EXPECTED_STATIC_IP_PRESENT=1 only; no board TCP pass yet |
+| 0_connect_and_prepare | Before any real N03 acceptance run | powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\apply_n03_static_direct_network_admin.ps1 | reports/n03_static_direct_network_preflight_current.summary.txt | PC_ETHERNET_LINK_UP=1 and PC_EXPECTED_STATIC_IP_PRESENT=1 only; no board TCP pass yet |
 | 1_current_state_gate | After Ethernet is plugged in and static IP is configured | powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_n03_current_state_gate.ps1 -TimeoutSeconds 3 | reports/n03_current_state_gate_current.summary.txt | N03_CURRENT_STATE_GATE_STATUS remains authoritative; do not claim final pass from preflight alone |
 | 2_real_static_direct_acceptance | Only after 192.168.10.2:5001 is reachable | powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_n03_network_first_acceptance_safe.ps1 -TargetHost 192.168.10.2 -Port 5001 -ComPort COM3 -ReconnectCycles 20 -MatrixRepeat 100 -SustainedSeconds 60 -LongSeconds 300 | reports/n03_network_first_acceptance_<stamp>.*/ and reports/n03_network_first_acceptance_safe_<stamp>.* | Real N03-1..N03-5/N03-9 claims require non-dry-run safe wrapper markers and clean logs |
 | 3_dhcp_fallback_capture | After board boots with DHCP client and no PC DHCP server | capture UART DHCP_START/DHCP_TIMEOUT/STATIC_FALLBACK_IP=192.168.10.2/TCP_READY, then rerun the safe wrapper | reports/ps_uart_boot_probe_<stamp>.summary.txt plus N03 safe wrapper logs | DHCP timeout/static fallback pass also requires real TCP HELLO and memory echo after fallback |

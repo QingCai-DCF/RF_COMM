@@ -1,6 +1,6 @@
 # N03-10 Network-first Acceptance Package
 
-Generated: 2026-07-01T12:28:57
+Generated: 2026-07-01T12:35:01
 
 Verdict: `PACKAGE_PARTIAL_REAL_BOARD_PENDING`
 
@@ -44,6 +44,7 @@ This package is a current-state N03 deliverable bundle. It proves source/offline
 - N03 static direct PC preflight summary: `reports/n03_static_direct_network_preflight_current.summary.txt`
 - N03 static direct PC preflight report: `reports/n03_static_direct_network_preflight_current.md`
 - N03 static direct PC preflight JSON: `reports/n03_static_direct_network_preflight_current.json`
+- N03 static direct admin apply helper: `tools/apply_n03_static_direct_network_admin.ps1`
 - N03 PC-hosted DHCP preflight summary: `reports/n03_pc_hosted_dhcp_preflight_current.summary.txt`
 - N03 PC-hosted DHCP preflight report: `reports/n03_pc_hosted_dhcp_preflight_current.md`
 - N03 PC-hosted DHCP preflight JSON: `reports/n03_pc_hosted_dhcp_preflight_current.json`
@@ -61,7 +62,7 @@ This package is a current-state N03 deliverable bundle. It proves source/offline
 - Real acceptance runbook report: `reports/real_acceptance_runbook_current.md`
 - Real acceptance runbook JSON: `reports/real_acceptance_runbook_current.json`
 - Real acceptance runbook CSV: `reports/real_acceptance_runbook_current.csv`
-- Latest elevated static setup launch summary: `reports/n03_static_direct_network_preflight_20260701_121859.summary.txt`
+- Latest elevated static setup launch summary: `reports/n03_static_direct_network_preflight_20260701_123045.summary.txt`
 - Latest elevated static setup launch pending or declined: `1`
 - Latest non-admin static setup apply refusal summary: `reports/n03_static_direct_network_preflight_20260701_105835.summary.txt`
 - Latest UART boot probe summary: `reports/ps_uart_boot_probe_20260701_000400.summary.txt`
