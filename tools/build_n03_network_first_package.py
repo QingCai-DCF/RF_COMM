@@ -302,6 +302,7 @@ def main() -> int:
     safe_synth_ok = marker(safe_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1") and not safe_dry_run
     safe_negative_ok = marker(safe_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1") and not safe_dry_run
     safe_link_ok = marker(safe_text, "N03_LINK_RECOVERY_PASS=1") and not safe_dry_run
+    safe_dhcp_fallback_ok = marker(safe_text, "N03_DHCP_FALLBACK_PASS=1") and not safe_dry_run
     safe_acceptance_ok = marker(safe_text, "N03_REAL_BOARD_ACCEPTANCE_PASS=1") and not safe_dry_run
     pc_static_ip_ok = marker(static_net_text, "PC_EXPECTED_STATIC_IP_PRESENT=1")
     pc_ethernet_up = marker(static_net_text, "PC_ETHERNET_LINK_UP=1")
@@ -374,7 +375,9 @@ def main() -> int:
     memory_status = "PASS_REAL_BOARD" if safe_memory_ok else ("PASS_OFFLINE_REAL_PENDING" if memory_ok else "MISSING_OFFLINE_EVIDENCE")
     synth_status = "PASS_REAL_BOARD" if safe_synth_ok else ("PASS_OFFLINE_REAL_PENDING" if synth_ok else "MISSING_OFFLINE_EVIDENCE")
     dhcp_fallback_status = (
-        "PASS_UART_REAL_TCP_PENDING"
+        "PASS_REAL_BOARD"
+        if safe_dhcp_fallback_ok
+        else "PASS_UART_REAL_TCP_PENDING"
         if uart_dhcp_fallback and uart_tcp_listen
         else "SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING"
         if static_ok and uart_summary is not None
@@ -479,9 +482,9 @@ def main() -> int:
             "N03-6",
             "DHCP timeout plus static fallback",
             dhcp_fallback_status,
-            f"{rel(static_report)}; {rel(uart_summary)}",
+            f"{rel(safe_summary)}; {rel(static_report)}; {rel(uart_summary)}",
             "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
-            "source supports fallback; no real fallback pass yet",
+            "N03_DHCP_FALLBACK_PASS is real only if safe wrapper marker is 1 with UART/TCP/memory evidence",
         ),
         StageRow(
             "N03-7",
@@ -602,11 +605,11 @@ def main() -> int:
     )
     write(
         OUT / "N03_06_dhcp_timeout_fallback_report.md",
-        report_template("N03-6 DHCP Timeout Static Fallback", rows[6].status, f"Source/static checks confirm DHCP start/timeout/static fallback plumbing. Latest read-only UART probe verdict: `{uart_verdict or 'MISSING'}` with {uart_log_bytes} captured bytes. Real UART DHCP fallback plus TCP fallback evidence remains pending.", rows),
+        report_template("N03-6 DHCP Timeout Static Fallback", rows[6].status, f"Source/static checks confirm DHCP start/timeout/static fallback plumbing. Latest read-only UART probe verdict: `{uart_verdict or 'MISSING'}` with {uart_log_bytes} captured bytes. Safe wrapper DHCP fallback pass={int(safe_dhcp_fallback_ok)}. Real pass requires UART DHCP timeout/static IP/TCP_READY plus real TCP HELLO and memory echo in the safe wrapper.", rows),
     )
     write(
         OUT / "N03_06_dhcp_timeout_fallback_transcript.txt",
-        f"generated={generated}\nexpected_DHCP_TIMEOUT=1\nexpected_STATIC_FALLBACK_IP=192.168.10.2\nreal_uart_transcript_present={int(uart_has_text)}\nuart_summary={rel(uart_summary)}\nuart_probe_verdict={uart_verdict}\nuart_log_bytes={uart_log_bytes}\nuart_dhcp_static_fallback_seen={int(uart_dhcp_fallback)}\nuart_tcp_listen_5001_seen={int(uart_tcp_listen)}\nstatus={rows[6].status}\n",
+        f"generated={generated}\nexpected_DHCP_TIMEOUT=1\nexpected_STATIC_FALLBACK_IP=192.168.10.2\nreal_uart_transcript_present={int(uart_has_text)}\nuart_summary={rel(uart_summary)}\nsafe_wrapper_summary={rel(safe_summary)}\nsafe_dhcp_fallback_pass={int(safe_dhcp_fallback_ok)}\nuart_probe_verdict={uart_verdict}\nuart_log_bytes={uart_log_bytes}\nuart_dhcp_static_fallback_seen={int(uart_dhcp_fallback)}\nuart_tcp_listen_5001_seen={int(uart_tcp_listen)}\nstatus={rows[6].status}\n",
     )
     write(
         OUT / "N03_07_pc_hosted_dhcp_lease_report.md",

@@ -1,14 +1,14 @@
 # N03 Real Board Handoff
 
-Generated: 2026-07-01T12:12:02
+Generated: 2026-07-01T12:17:01
 
 This handoff is the ordered entry point for continuing the N03 network-first plan once the board Ethernet link is available. It does not configure networking, run hardware, or claim a real-board pass by itself.
 
-- Current external preconditions: `BLOCKED_NO_ETHERNET`
-- Current runbook: `WAITING_FOR_ETHERNET`
+- Current external preconditions: `BLOCKED_EXTERNAL_PRECONDITIONS`
+- Current runbook: `WAITING_FOR_REAL_HARDWARE`
 - Current blocker: `PC Ethernet lacks 192.168.10.1/24 static direct IP`
 - Current gate report: `reports/n03_current_state_gate_current.md`
-- Safe wrapper summary: `reports/n03_network_first_acceptance_safe_20260701_113628.summary.txt`
+- Safe wrapper summary: `reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt`
 
 ## Ordered Commands
 

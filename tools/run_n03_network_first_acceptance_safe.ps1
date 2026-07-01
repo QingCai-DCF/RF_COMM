@@ -180,6 +180,37 @@ function Get-MarkerValues {
     return @($values)
 }
 
+function Test-MarkerPositive {
+    param(
+        [string]$Text,
+        [string]$Key
+    )
+    foreach ($value in (Get-MarkerValues -Text $Text -Key $Key)) {
+        [int]$parsed = 0
+        if ([int]::TryParse($value, [ref]$parsed)) {
+            if ($parsed -gt 0) {
+                return $true
+            }
+        } elseif ($value.ToLowerInvariant() -in @("true", "yes", "pass")) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Write-N03IncompletePassMarkers {
+    Write-SummaryLine "N03_STATIC_DIRECT_TCP_PASS=0"
+    Write-SummaryLine "N03_TCP_PROTOCOL_COMMAND_PASS=0"
+    Write-SummaryLine "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=0"
+    Write-SummaryLine "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=0"
+    Write-SummaryLine "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=0"
+    Write-SummaryLine "N03_LINK_RECOVERY_PASS=0"
+    Write-SummaryLine "N03_DHCP_FALLBACK_TCP_HELLO_PASS=0"
+    Write-SummaryLine "N03_DHCP_FALLBACK_MEMORY_ECHO_PASS=0"
+    Write-SummaryLine "N03_DHCP_FALLBACK_PASS=0"
+    Write-SummaryLine "N03_PC_HOSTED_DHCP_LEASE_PASS=0"
+}
+
 function Invoke-PayloadCase {
     param(
         [string]$Mode,
@@ -268,6 +299,7 @@ Write-SummaryLine "CONSTRAINT_SHA256=$constraintHash"
 Write-SummaryLine "CONSTRAINT_UNCHANGED=$([int]($constraintHash -eq $expectedConstraintSha256))"
 Add-MatrixRow -Item "constraint" -Status $(if ($constraintHash -eq $expectedConstraintSha256) { "PASS" } else { "FAIL" }) -Evidence $constraintHash -Note "Project hard constraint must not change."
 if ($constraintHash -ne $expectedConstraintSha256) {
+    Write-N03IncompletePassMarkers
     Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=0"
     Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1"
     Write-SummaryLine "N03_BLOCKED_REASON=project_constraint_hash_mismatch"
@@ -314,6 +346,7 @@ if (-not $SkipStaticDirectPreflight) {
     if ($elevatedApply) { Write-SummaryLine "N03_ELEVATED_STATIC_DIRECT_SETUP_COMMAND=$elevatedApply" }
     if ($elevatedUac) { Write-SummaryLine "N03_ELEVATED_STATIC_DIRECT_UAC_COMMAND=$elevatedUac" }
     if ($staticBlockers -contains "pc_missing_expected_static_ip") {
+        Write-N03IncompletePassMarkers
         Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=0"
         Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1"
         Write-SummaryLine "N03_BLOCKED_REASON=pc_missing_expected_static_ip"
@@ -357,6 +390,30 @@ if (-not $SkipUartProbe) {
         [string]$UartProbeSeconds
     ) -LogPath $uartLog -ErrPath $uartErr -TimeoutSecondsForStep ($UartProbeSeconds + 20)
     Add-MatrixRow -Item "uart_probe_readonly" -Status (Step-Status $uartResult) -Evidence $uartLog -Note "Read-only UART boot/IP probe."
+    $uartCombined = $uartResult.Stdout + "`n" + $uartResult.Stderr
+    $uartDhcpFallbackSeen = Test-MarkerPositive -Text $uartCombined -Key "MATCH_DHCP_STATIC_FALLBACK"
+    $uartTcpListenSeen = Test-MarkerPositive -Text $uartCombined -Key "MATCH_TCP_LISTEN_5001"
+    $uartBoardIps = @(Get-MarkerValues -Text $uartCombined -Key "BOARD_IP_SEEN")
+    $uartFallbackIpSeen = $uartBoardIps -contains $TargetHost
+    $uartFallbackStatus = if ($uartDhcpFallbackSeen -and $uartTcpListenSeen -and $uartFallbackIpSeen) {
+        "PASS"
+    } elseif ($uartResult.ExitCode -eq 0) {
+        "PENDING"
+    } else {
+        Step-Status $uartResult
+    }
+    Add-MatrixRow -Item "N03-6_uart_dhcp_fallback_probe" -Status $uartFallbackStatus -Evidence $uartLog -Note "Read-only UART evidence for DHCP timeout, static fallback IP, and TCP_READY."
+    Write-SummaryLine "N03_DHCP_FALLBACK_UART_DHCP_TIMEOUT_SEEN=$([int]$uartDhcpFallbackSeen)"
+    Write-SummaryLine "N03_DHCP_FALLBACK_UART_STATIC_IP_SEEN=$([int]$uartFallbackIpSeen)"
+    Write-SummaryLine "N03_DHCP_FALLBACK_UART_TCP_READY_SEEN=$([int]$uartTcpListenSeen)"
+} else {
+    $uartCombined = ""
+    $uartDhcpFallbackSeen = $false
+    $uartTcpListenSeen = $false
+    $uartFallbackIpSeen = $false
+    Write-SummaryLine "N03_DHCP_FALLBACK_UART_DHCP_TIMEOUT_SEEN=0"
+    Write-SummaryLine "N03_DHCP_FALLBACK_UART_STATIC_IP_SEEN=0"
+    Write-SummaryLine "N03_DHCP_FALLBACK_UART_TCP_READY_SEEN=0"
 }
 
 $tcpQuick = $true
@@ -368,6 +425,7 @@ if ($DryRun) {
 Write-SummaryLine "TCP_QUICK_CONNECT_OK=$([int]$tcpQuick)"
 if (-not $tcpQuick) {
     Add-MatrixRow -Item "N03-1_static_tcp_connect" -Status "BLOCKED" -Evidence "$TargetHost`:$Port=False" -Note "Board PS bridge is not reachable over TCP."
+    Write-N03IncompletePassMarkers
     Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=0"
     Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1"
     Write-SummaryLine "N03_BLOCKED_REASON=tcp_target_not_reachable"
@@ -463,6 +521,15 @@ Add-MatrixRow -Item "N03-9_reconnect" -Status (Step-Status $reconnect) -Evidence
 if ($reconnect.ExitCode -ne 0 -and $overall -eq 0) { $overall = $reconnect.ExitCode }
 
 $pass = ($overall -eq 0 -and -not $DryRun)
+$dhcpFallbackPass = (
+    $uartDhcpFallbackSeen `
+    -and $uartFallbackIpSeen `
+    -and $uartTcpListenSeen `
+    -and ($smoke.ExitCode -eq 0) `
+    -and $memoryAllOk `
+    -and -not $DryRun
+)
+Add-MatrixRow -Item "N03-6_dhcp_timeout_static_fallback" -Status $(if ($dhcpFallbackPass) { "PASS" } else { "REAL_BOARD_PENDING" }) -Evidence $matrixCsv -Note "Requires UART DHCP timeout/static fallback/TCP_READY plus real TCP HELLO and memory echo."
 if ($DryRun) {
     Write-SummaryLine "N03_DRY_RUN=1"
 }
@@ -472,7 +539,9 @@ Write-SummaryLine "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=$([int]($memoryAllOk -and -n
 Write-SummaryLine "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=$([int]($psplAllOk -and -not $DryRun))"
 Write-SummaryLine "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=$([int]($negative.ExitCode -eq 0 -and -not $DryRun))"
 Write-SummaryLine "N03_LINK_RECOVERY_PASS=$([int]($reconnect.ExitCode -eq 0 -and -not $DryRun))"
-Write-SummaryLine "N03_DHCP_FALLBACK_PASS=0"
+Write-SummaryLine "N03_DHCP_FALLBACK_TCP_HELLO_PASS=$([int]($smoke.ExitCode -eq 0 -and -not $DryRun))"
+Write-SummaryLine "N03_DHCP_FALLBACK_MEMORY_ECHO_PASS=$([int]($memoryAllOk -and -not $DryRun))"
+Write-SummaryLine "N03_DHCP_FALLBACK_PASS=$([int]$dhcpFallbackPass)"
 Write-SummaryLine "N03_PC_HOSTED_DHCP_LEASE_PASS=0"
 Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_PASS=$([int]$pass)"
 Write-SummaryLine "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=0"
@@ -492,6 +561,10 @@ $mdLines = @(
     "",
     "- Target host: $TargetHost",
     "- TCP port: $Port",
+    "- DHCP fallback pass: $([int]$dhcpFallbackPass)",
+    "- DHCP fallback UART DHCP timeout seen: $([int]$uartDhcpFallbackSeen)",
+    "- DHCP fallback UART static IP seen: $([int]$uartFallbackIpSeen)",
+    "- DHCP fallback UART TCP ready seen: $([int]$uartTcpListenSeen)",
     "- Summary log: $summaryLog",
     "- Matrix CSV: $matrixCsv",
     "- Log dir: $logDir",

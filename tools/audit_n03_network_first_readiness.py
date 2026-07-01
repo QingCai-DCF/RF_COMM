@@ -188,6 +188,7 @@ def collect_items() -> list[ReadinessItem]:
     synth_real = marker(safe_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1") and not safe_dry_run
     link_real = marker(safe_text, "N03_LINK_RECOVERY_PASS=1") and not safe_dry_run
     negative_real = marker(safe_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1") and not safe_dry_run
+    dhcp_fallback_real = marker(safe_text, "N03_DHCP_FALLBACK_PASS=1") and not safe_dry_run
 
     static_blockers = [
         line.split("=", 1)[1].strip()
@@ -200,11 +201,6 @@ def collect_items() -> list[ReadinessItem]:
     pc_dhcp_status = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_PREFLIGHT_STATUS")
     pc_dhcp_ready = marker(pc_dhcp_text, "N03_PC_HOSTED_DHCP_SERVER_READY=1")
     pc_dhcp_lease = marker(pc_dhcp_text, "N03_PC_HOSTED_DHCP_LEASE_PASS" + "=1")
-    dhcp_fallback_real = (
-        marker(uart_text, "MATCH_DHCP_STATIC_FALLBACK=1")
-        and marker(uart_text, "MATCH_TCP_LISTEN_5001=1")
-        and static_real
-    )
     offline_gate = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS")
     payload_offline = marker(offline_text + "\n" + payload_text, "N03_OFFLINE_PAYLOAD_MATRIX_PASS=1")
     reconnect_offline = marker(reconnect_text + "\n" + offline_text, "N03_OFFLINE_RECONNECT_PAYLOAD_20X_PASS=1")
@@ -287,9 +283,9 @@ def collect_items() -> list[ReadinessItem]:
             "N03-6",
             "DHCP timeout is observed and static fallback IP reaches TCP on real board.",
             "PASS_REAL_BOARD" if dhcp_fallback_real else "SOURCE_READY_REAL_PENDING",
-            f"{rel(uart_summary)}; reports/ps_lwip_bridge_static_current.md",
-            "" if dhcp_fallback_real else "real_uart_dhcp_fallback_and_tcp_reconnect_missing",
-            "capture UART DHCP_TIMEOUT/STATIC_FALLBACK_IP plus real TCP reconnect",
+            f"{rel(safe_summary)}; {rel(uart_summary)}; reports/ps_lwip_bridge_static_current.md",
+            "" if dhcp_fallback_real else "real_safe_wrapper_dhcp_fallback_missing",
+            "run safe acceptance after UART shows DHCP_TIMEOUT/STATIC_FALLBACK_IP/TCP_READY and TCP is reachable",
         )
     )
     items.append(
