@@ -1,6 +1,6 @@
 # N03-8 Network Payload Matrix
 
-Generated: 2026-07-01T11:46:54
+Generated: 2026-07-01T11:51:22
 
 Verdict: `PASS_OFFLINE_LOCALHOST_MATRIX_REAL_THROUGHPUT_PENDING`
 
@@ -20,7 +20,7 @@ The full real 16..8192 byte throughput matrix is not yet run. Current offline ev
 | N03-7 | PC-hosted DHCP lease | DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED | reports/n03_pc_hosted_dhcp_preflight_current.summary.txt; reports/n03_pc_hosted_dhcp_preflight_current.md; reports/n03_pc_hosted_dhcp_preflight_current.json; status=BLOCKED_ETHERNET_LINK_DOWN | DHCP DISCOVER/OFFER/REQUEST/ACK and board IP in pool | PC DHCP preflight only; no DHCP lease pass |
 | N03-8 | payload matrix and throughput | PASS_OFFLINE_LOCALHOST_MATRIX_REAL_THROUGHPUT_PENDING | reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_payload_matrix_current.md; reports/n03_offline_payload_matrix_current.csv | real board 16..8192 byte payload matrix and throughput CSV | offline localhost payload matrix/tooling only; no real throughput pass |
 | N03-9 | link recovery and negative tests | PASS_OFFLINE_RECONNECT_20X_PAYLOAD_PROTOCOL_NEGATIVE_REAL_LINK_PENDING | reports/n03_network_first_acceptance_safe_20260701_113628.summary.txt; reports/n03_network_first_acceptance_safe_20260701_113628.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_reconnect_matrix_current.md; reports/n03_offline_reconnect_matrix_current.csv; reports/no_ethernet_network_boundary_evidence_current.md; reports/ps_lwip_bridge_static_current.md | real reconnect/disconnect matrix and negative command matrix | offline 10x/20x reconnect, payload echo, bad-arg negatives, and source/boundary protocol-fault negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1 |
-| N03-10 | network-first acceptance package | PACKAGE_PARTIAL_REAL_BOARD_PENDING | evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260701_113628.md; reports/n03_network_first_readiness_current.md | N03-1..N03-6, N03-8, and N03-9 real board evidence | package is ready for review, not final N03 pass |
+| N03-10 | network-first acceptance package | PACKAGE_PARTIAL_REAL_BOARD_PENDING | evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260701_113628.md; reports/n03_network_first_readiness_current.md; reports/n03_current_state_gate_current.md | N03-1..N03-6, N03-8, and N03-9 real board evidence | package is ready for review, not final N03 pass |
 
 ## Non-Claims
 
