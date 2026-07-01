@@ -741,7 +741,8 @@ def main() -> int:
         "powershell -NoProfile -ExecutionPolicy Bypass -File "
         ".\\tools\\run_n03_network_first_acceptance_safe.ps1 "
         f"-TargetHost {candidate_target or '<candidate-ip-from-uart-or-local-tcp>'} "
-        "-Port 5001 -ComPort COM3 -ReconnectCycles 20 -MatrixRepeat 100 "
+        "-Port 5001 -ComPort COM3 -UseLatestTargetHint -SkipStaticDirectPreflight "
+        "-ReconnectCycles 20 -MatrixRepeat 100 "
         "-SustainedSeconds 60 -LongSeconds 300"
     )
     package_rebuild_command = "python .\\tools\\build_n03_network_first_package.py"

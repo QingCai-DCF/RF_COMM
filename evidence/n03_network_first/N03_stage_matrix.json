@@ -11,7 +11,7 @@
     "item": "N03-1",
     "title": "static IP direct smoke",
     "status": "BLOCKED_PC_STATIC_IP_NOT_CONFIGURED",
-    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; local_tcp_5001_candidates=none; target_hints=static_expected=192.168.10.2; PC Ethernet lacks 192.168.10.1/24 static direct IP",
+    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; local_tcp_5001_candidates=none; target_hints=static_expected=192.168.10.2; PC Ethernet lacks 192.168.10.1/24 static direct IP",
     "next_required_evidence": "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001, or a justified UART/local-discovery board IP with matching safe-wrapper evidence",
     "allowed_claim": "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1"
   },
@@ -19,7 +19,7 @@
     "item": "N03-2",
     "title": "TCP hello/status/build-id",
     "status": "PASS_OFFLINE_RECONNECT_10X_REAL_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_reconnect_matrix_current.md; reports/n03_offline_reconnect_matrix_current.csv",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_reconnect_matrix_current.md; reports/n03_offline_reconnect_matrix_current.csv",
     "next_required_evidence": "real board HELLO/STATUS/GET_BUILD_ID transcript",
     "allowed_claim": "real HELLO covered only if safe wrapper static smoke passed"
   },
@@ -27,7 +27,7 @@
     "item": "N03-3",
     "title": "TCP command protocol coverage",
     "status": "PASS_OFFLINE_REAL_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/protocol_contract_current.md",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/protocol_contract_current.md",
     "next_required_evidence": "real board command matrix with ACK/ERR for all N03 commands",
     "allowed_claim": "N03_TCP_PROTOCOL_COMMAND_PASS is real only if safe wrapper marker is 1"
   },
@@ -35,7 +35,7 @@
     "item": "N03-4",
     "title": "PC to PS memory echo",
     "status": "PASS_OFFLINE_REAL_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/n03_network_first_acceptance_safe_20260701_125709.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt",
     "next_required_evidence": "real board memory echo matrix with payload_mismatch=0",
     "allowed_claim": "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS is real only if safe wrapper marker is 1"
   },
@@ -43,7 +43,7 @@
     "item": "N03-5",
     "title": "PC to PS to PL synthetic loopback",
     "status": "PASS_OFFLINE_REAL_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/n03_network_first_acceptance_safe_20260701_125709.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt",
     "next_required_evidence": "real board PS/PL synthetic matrix with DMA counters and payload_mismatch=0",
     "allowed_claim": "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS is real only if safe wrapper marker is 1"
   },
@@ -51,7 +51,7 @@
     "item": "N03-6",
     "title": "DHCP timeout plus static fallback",
     "status": "SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260701_124132.summary.txt; target_hints=static_expected=192.168.10.2",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260701_124132.summary.txt; target_hints=static_expected=192.168.10.2",
     "next_required_evidence": "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
     "allowed_claim": "N03_DHCP_FALLBACK_PASS is real only if safe wrapper marker is 1 with UART/TCP/memory evidence"
   },
@@ -75,7 +75,7 @@
     "item": "N03-9",
     "title": "link recovery and negative tests",
     "status": "PASS_OFFLINE_RECONNECT_20X_PAYLOAD_PROTOCOL_NEGATIVE_REAL_LINK_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_reconnect_matrix_current.md; reports/n03_offline_reconnect_matrix_current.csv; reports/no_ethernet_network_boundary_evidence_current.md; reports/ps_lwip_bridge_static_current.md",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_125709.summary.txt; reports/n03_network_first_acceptance_safe_20260701_125709.matrix.csv; reports/ps_pc_offline_gates_20260701_113607.summary.txt; reports/n03_offline_reconnect_matrix_current.md; reports/n03_offline_reconnect_matrix_current.csv; reports/no_ethernet_network_boundary_evidence_current.md; reports/ps_lwip_bridge_static_current.md",
     "next_required_evidence": "real reconnect/disconnect matrix and negative command matrix",
     "allowed_claim": "offline 10x/20x reconnect, payload echo, bad-arg negatives, and source/boundary protocol-fault negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1"
   },
@@ -83,7 +83,7 @@
     "item": "N03-10",
     "title": "network-first acceptance package",
     "status": "PACKAGE_PARTIAL_REAL_BOARD_PENDING",
-    "evidence": "evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260701_121630.md; reports/n03_network_first_readiness_current.md; reports/n03_current_state_gate_current.md; reports/real_acceptance_runbook_current.md",
+    "evidence": "evidence/n03_network_first; reports/n03_static_direct_network_preflight_current.md; reports/n03_network_first_acceptance_safe_20260701_125709.md; reports/n03_network_first_readiness_current.md; reports/n03_current_state_gate_current.md; reports/real_acceptance_runbook_current.md",
     "next_required_evidence": "N03-1..N03-6, N03-8, and N03-9 real board evidence",
     "allowed_claim": "package is ready for review, not final N03 pass"
   }

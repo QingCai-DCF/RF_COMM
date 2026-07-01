@@ -1,4 +1,4 @@
-generated=2026-07-01T12:53:40
+generated=2026-07-01T12:58:35
 status=DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED
 pc_dhcp_preflight_status=DEFERRED_NO_PC_DHCP_SERVER
 pc_dhcp_next_action=configure_windows_ics_or_standalone_dhcp_server

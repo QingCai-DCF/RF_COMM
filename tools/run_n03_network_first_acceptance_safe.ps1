@@ -12,6 +12,7 @@ param(
     [int]$LongSeconds = 300,
     [switch]$SkipUartProbe,
     [switch]$SkipStaticDirectPreflight,
+    [switch]$UseLatestTargetHint,
     [switch]$DryRun
 )
 
@@ -132,6 +133,50 @@ function Test-TcpPortQuick {
     } catch {
         return $false
     }
+}
+
+function Get-LatestReport {
+    param([string]$Pattern)
+    $matches = @(Get-ChildItem -LiteralPath $reportsDir -Filter $Pattern -File -ErrorAction SilentlyContinue |
+        Sort-Object -Property LastWriteTime -Descending)
+    if ($matches.Count -eq 0) { return $null }
+    return $matches[0].FullName
+}
+
+function Get-LatestUartBoardIp {
+    $summaryPath = Get-LatestReport -Pattern "ps_uart_boot_probe_*.summary.txt"
+    if ([string]::IsNullOrWhiteSpace($summaryPath)) { return "" }
+    $text = Get-Content -LiteralPath $summaryPath -Raw -ErrorAction SilentlyContinue
+    $matches = @([regex]::Matches($text, "^BOARD_IP_SEEN=(\d+\.\d+\.\d+\.\d+)$", "IgnoreCase,Multiline"))
+    if ($matches.Count -eq 0) { return "" }
+    return $matches[$matches.Count - 1].Groups[1].Value
+}
+
+function Get-ExternalPreconditionTcpCandidate {
+    $jsonPath = Join-Path $reportsDir "external_preconditions_current.json"
+    if (-not (Test-Path -LiteralPath $jsonPath -PathType Leaf)) { return "" }
+    try {
+        $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
+        $candidates = @($payload.local_tcp_discovery.candidates)
+        if ($candidates.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$candidates[0])) {
+            return [string]$candidates[0]
+        }
+    } catch {
+        return ""
+    }
+    return ""
+}
+
+function Resolve-TargetHostHint {
+    $uartIp = Get-LatestUartBoardIp
+    if (-not [string]::IsNullOrWhiteSpace($uartIp)) {
+        return [pscustomobject]@{ Host = $uartIp; Source = "latest_uart_board_ip" }
+    }
+    $tcpCandidate = Get-ExternalPreconditionTcpCandidate
+    if (-not [string]::IsNullOrWhiteSpace($tcpCandidate)) {
+        return [pscustomobject]@{ Host = $tcpCandidate; Source = "external_local_tcp_5001_candidate" }
+    }
+    return [pscustomobject]@{ Host = ""; Source = "none" }
 }
 
 function Invoke-Acceptance {
@@ -264,9 +309,22 @@ function Invoke-DurationCase {
     return Invoke-Acceptance -Name $name -Arguments $args -TimeoutSecondsForStep $timeout
 }
 
+$originalTargetHost = $TargetHost
+$targetHint = [pscustomobject]@{ Host = ""; Source = "disabled" }
+if ($UseLatestTargetHint) {
+    $targetHint = Resolve-TargetHostHint
+    if (-not [string]::IsNullOrWhiteSpace($targetHint.Host)) {
+        $TargetHost = [string]$targetHint.Host
+    }
+}
+
 "N03_NETWORK_FIRST_ACCEPTANCE_SAFE_BEGIN $(Get-Date -Format o)" | Out-File -LiteralPath $summaryLog -Encoding utf8
 "item,status,evidence,note" | Out-File -LiteralPath $matrixCsv -Encoding UTF8
 Write-SummaryLine "REPO_ROOT=$repoRoot"
+Write-SummaryLine "TARGET_HOST_ORIGINAL=$originalTargetHost"
+Write-SummaryLine "USE_LATEST_TARGET_HINT=$([int]$UseLatestTargetHint.IsPresent)"
+Write-SummaryLine "TARGET_HOST_HINT_SOURCE=$($targetHint.Source)"
+Write-SummaryLine "TARGET_HOST_HINT_VALUE=$($targetHint.Host)"
 Write-SummaryLine "TARGET_HOST=$TargetHost"
 Write-SummaryLine "PORT=$Port"
 Write-SummaryLine "COM_PORT=$ComPort"
