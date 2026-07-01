@@ -89,7 +89,7 @@ Write-SummaryLine "REPEAT=$Repeat"
 Write-SummaryLine "PAYLOAD_SIZE=$PayloadSize"
 Write-SummaryLine "RECONNECT_CYCLES=$ReconnectCycles"
 Write-SummaryLine "TIMEOUT_SECONDS=$TimeoutSeconds"
-Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative;app_payload_segmentation"
+Write-SummaryLine "N03_OFFLINE_MODES=commands;memory_echo;pspl_synth;ir_physical_deferred_negative;app_payload_segmentation;reconnect_payload_echo"
 
 $overall = 0
 
@@ -134,6 +134,11 @@ if (Test-Path -LiteralPath $acceptanceLog) {
         if (Select-String -LiteralPath $acceptanceLog -Pattern $marker -SimpleMatch -Quiet) {
             Write-SummaryLine "N03_ACCEPTANCE_MARKER $marker"
         }
+    }
+    if ((Select-String -LiteralPath $acceptanceLog -Pattern "reconnect cycle 2/2" -SimpleMatch -Quiet) -and
+        (Select-String -LiteralPath $acceptanceLog -Pattern "rx_data=1" -SimpleMatch -Quiet) -and
+        -not (Select-String -LiteralPath $acceptanceLog -Pattern "reconnect cycle .*acceptance failures" -Quiet)) {
+        Write-SummaryLine "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1"
     }
 }
 

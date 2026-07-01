@@ -703,8 +703,24 @@ def evaluate_acceptance(stats: Stats, elapsed: float, *,
     return failures
 
 
+def wait_for_reconnect_cycle(stats: Stats, min_rx_frames: int,
+                             timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    with stats.condition:
+        while stats.pending or stats.rx_data_frames < min_rx_frames:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                if stats.pending_tx_data_count() > 0:
+                    stats.ack_timeouts += stats.pending_tx_data_count()
+                return False
+            stats.condition.wait(remaining)
+    return True
+
+
 def run_reconnect_cycles(host: str, port: int, cycles: int,
-                         delay: float, timeout: float) -> bool:
+                         delay: float, timeout: float,
+                         payload_size: int = 0,
+                         payload_pattern: str = "incremental") -> bool:
     ok = True
     for cycle in range(cycles):
         client = RFClient(host, port, timeout)
@@ -718,10 +734,31 @@ def run_reconnect_cycles(host: str, port: int, cycles: int,
             rx_thread.start()
             send_tracked(client, stats, FRAME_HELLO)
             send_tracked(client, stats, FRAME_STATUS_REQ)
-            if not stats.wait_for_all_pending(max(timeout, 0.8)):
+            min_rx_frames = 0
+            if payload_size > 0:
+                send_tracked(
+                    client,
+                    stats,
+                    FRAME_TX_DATA,
+                    make_payload(cycle, payload_size, payload_pattern),
+                )
+                min_rx_frames = 1
+            if not wait_for_reconnect_cycle(stats, min_rx_frames, max(timeout, 0.8)):
                 print(f"reconnect cycle {cycle + 1}/{cycles}: pending response timeout")
                 ok = False
             elapsed = max(time.monotonic() - cycle_started, 1e-6)
+            failures = evaluate_acceptance(
+                stats,
+                elapsed,
+                require_clean=True,
+                min_rx_frames=min_rx_frames,
+            )
+            if failures:
+                print(
+                    f"reconnect cycle {cycle + 1}/{cycles}: acceptance failures "
+                    + ";".join(failures)
+                )
+                ok = False
             print(f"reconnect cycle {cycle + 1}/{cycles}: {stats.summary(elapsed)}")
         except OSError as exc:
             print(f"reconnect cycle {cycle + 1}/{cycles} failed: {exc}")
@@ -818,6 +855,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--expect-error", help="exit zero only if an ERROR frame containing this text is received")
     parser.add_argument("--reconnect-cycles", type=int, default=0, help="connect, query, close, and reconnect this many times")
     parser.add_argument("--reconnect-delay", type=float, default=1.0)
+    parser.add_argument("--reconnect-payload-size", type=int, default=0, help="also send this many TX_DATA bytes after reconnect, max 512")
+    parser.add_argument("--reconnect-payload-pattern", choices=("incremental", "synth_ramp", "zero", "ff"), default="incremental")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
@@ -838,11 +877,15 @@ def main(argv: list[str]) -> int:
         parser.error("--min-rx-mbps must be nonnegative")
     if args.min_rx_frames < 0:
         parser.error("--min-rx-frames must be nonnegative")
+    if args.reconnect_payload_size < 0 or args.reconnect_payload_size > MAX_FRAME_PAYLOAD:
+        parser.error(f"--reconnect-payload-size must be in the range 0..{MAX_FRAME_PAYLOAD}")
 
     if args.reconnect_cycles > 0:
         return 0 if run_reconnect_cycles(
             args.host, args.port, args.reconnect_cycles,
-            args.reconnect_delay, args.timeout
+            args.reconnect_delay, args.timeout,
+            args.reconnect_payload_size,
+            args.reconnect_payload_pattern,
         ) else 1
 
     client = RFClient(args.host, args.port, args.timeout)

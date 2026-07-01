@@ -27,6 +27,7 @@ param(
     [double]$MinRxMbps = 0.0,
     [int]$MinRxFrames = 0,
     [int]$ReconnectCycles = 20,
+    [int]$ReconnectPayloadSize = 64,
 
     [string]$LogDir = "",
     [switch]$VerboseFrames,
@@ -429,7 +430,9 @@ switch ($Mode) {
     "reconnect" {
         Invoke-RFClient ((Base-Args) + @(
             "--reconnect-cycles", [string]$ReconnectCycles,
-            "--reconnect-delay", "1.0"
+            "--reconnect-delay", "1.0",
+            "--reconnect-payload-size", [string]$ReconnectPayloadSize,
+            "--reconnect-payload-pattern", $PayloadPattern
         ))
     }
     "fdx_partition" {
@@ -486,7 +489,9 @@ switch ($Mode) {
             Invoke-N03Negative
             Invoke-RFClient ((Base-Args) + @(
                 "--reconnect-cycles", [string]$ReconnectCycles,
-                "--reconnect-delay", "0.1"
+                "--reconnect-delay", "0.1",
+                "--reconnect-payload-size", [string]$ReconnectPayloadSize,
+                "--reconnect-payload-pattern", $PayloadPattern
             ))
         } finally {
             Stop-OfflineMockServer $mockProcess

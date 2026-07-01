@@ -1047,6 +1047,25 @@ class RFClientOfflineTests(unittest.TestCase):
         finally:
             server.stop()
 
+    def test_reconnect_cycles_require_payload_echo_when_requested(self) -> None:
+        server = MockRFCMServer(rx_echo=True)
+        server.start()
+        try:
+            ok = rf.run_reconnect_cycles(
+                "127.0.0.1",
+                server.port,
+                cycles=3,
+                delay=0.0,
+                timeout=2.0,
+                payload_size=32,
+            )
+            self.assertTrue(ok)
+            self.assertEqual(server.connections, 3)
+            self.assertEqual(len(server.tx_payloads), 3)
+            self.assertTrue(all(len(payload) == 32 for payload in server.tx_payloads))
+        finally:
+            server.stop()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

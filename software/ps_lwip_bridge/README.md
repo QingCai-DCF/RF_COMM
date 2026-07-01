@@ -299,8 +299,14 @@ python '.\software\host_client\analyze_acceptance_log.py' '.\software\host_clien
 TCP reconnect smoke test:
 
 ```powershell
-python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --reconnect-cycles 20
+python '.\software\host_client\rf_comm_client.py' --host 192.168.10.2 --reconnect-cycles 20 --reconnect-payload-size 64
 ```
+
+When `--reconnect-payload-size` is nonzero, every reconnect cycle must complete
+HELLO, STATUS, one TX_DATA ACK, and one RX_DATA payload echo with
+`payload_mismatch=0`. The wrapper's `reconnect` mode enables this by default so
+N03-9 covers "reconnect, then continue STATUS / payload echo" rather than only
+opening TCP sessions.
 
 Offline PC protocol regression:
 

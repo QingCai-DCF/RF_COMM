@@ -223,6 +223,7 @@ def main() -> int:
     synth_ok = marker(offline_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1")
     negative_ok = marker(offline_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1")
     app_segmentation_ok = marker(offline_text, "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_PASS=1")
+    reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
     offline_ok = marker(offline_text, "PS_PC_OFFLINE_GATES_PASS") and marker(offline_text, "n03_modes=1")
     safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
     safe_blocked = marker(safe_text, "N03_REAL_BOARD_ACCEPTANCE_BLOCKED=1")
@@ -297,6 +298,8 @@ def main() -> int:
     link_status = (
         "PASS_REAL_BOARD"
         if safe_link_ok and safe_negative_ok
+        else "PASS_OFFLINE_RECONNECT_PAYLOAD_REAL_LINK_PENDING"
+        if negative_ok and reconnect_payload_ok
         else "PASS_OFFLINE_REAL_LINK_PENDING"
         if negative_ok and marker(offline_text, "reconnect cycle 2/2")
         else "MISSING_OR_PARTIAL"
@@ -394,7 +397,7 @@ def main() -> int:
             link_status,
             f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}",
             "real reconnect/disconnect matrix and negative command matrix",
-            "real link recovery only if safe wrapper reconnect and negative markers are 1",
+            "offline reconnect payload echo only; real link recovery only if safe wrapper reconnect and negative markers are 1",
         ),
         StageRow(
             "N03-10",
@@ -523,12 +526,12 @@ def main() -> int:
     )
     write(
         OUT / "N03_09_link_recovery_negative_tests.md",
-        report_template("N03-9 Link Recovery Negative Tests", rows[9].status, "Offline reconnect and negative command paths are covered. Real cable unplug/replug and board reconnect evidence remains pending.", rows),
+        report_template("N03-9 Link Recovery Negative Tests", rows[9].status, "Offline reconnect, post-reconnect payload echo, and negative command paths are covered. Real board reconnect and cable unplug/replug evidence remains pending.", rows),
     )
     write_csv(
         OUT / "N03_09_reconnect_matrix.csv",
         [
-            {"case": "offline_mock_reconnect_2x", "status": "PASS_OFFLINE" if marker(offline_text, "reconnect cycle 2/2") else "MISSING", "evidence": rel(offline_summary)},
+            {"case": "offline_mock_reconnect_payload_echo_2x", "status": "PASS_OFFLINE" if reconnect_payload_ok else "MISSING", "evidence": rel(offline_summary)},
             {"case": "real_board_reconnect_20x", "status": "REAL_BOARD_PENDING", "evidence": "required by plan"},
             {"case": "real_cable_unplug_replug", "status": "REAL_BOARD_PENDING", "evidence": "manual hardware step required"},
         ],
@@ -560,6 +563,7 @@ def main() -> int:
         "",
         f"- Offline summary: `{rel(offline_summary)}`",
         f"- Offline app payload segmentation: `{'PASS' if app_segmentation_ok else 'MISSING'}` (`8192_bytes_over_512_byte_rfcm_frames` when present)",
+        f"- Offline reconnect payload echo: `{'PASS' if reconnect_payload_ok else 'MISSING'}`",
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
