@@ -62,6 +62,40 @@ def rel(path: Path | None) -> str:
         return str(path).replace("\\", "/")
 
 
+def latest_report(pattern: str) -> Path | None:
+    matches = [path for path in REPORTS.glob(pattern) if path.is_file()]
+    if not matches:
+        return None
+    return max(matches, key=lambda path: path.stat().st_mtime)
+
+
+def marker_value(text: str, key: str) -> str:
+    prefix = key + "="
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip()
+    return ""
+
+
+def uart_boot_probe_snapshot() -> dict[str, Any]:
+    summary = latest_report("ps_uart_boot_probe_*.summary.txt")
+    text = read_text(summary)
+    log_bytes_text = marker_value(text, "UART_LOG_BYTES")
+    try:
+        log_bytes = int(log_bytes_text or "0")
+    except ValueError:
+        log_bytes = 0
+    return {
+        "summary": rel(summary),
+        "verdict": marker_value(text, "UART_PROBE_VERDICT") if summary else "MISSING",
+        "log_bytes": log_bytes,
+        "board_ip_seen": marker_value(text, "BOARD_IP_SEEN"),
+        "match_board_ip": marker_value(text, "MATCH_BOARD_IP"),
+        "match_tcp_listen_5001": marker_value(text, "MATCH_TCP_LISTEN_5001"),
+        "match_dhcp_static_fallback": marker_value(text, "MATCH_DHCP_STATIC_FALLBACK"),
+    }
+
+
 def find_constraint() -> Path | None:
     for path in ROOT.glob("*.txt"):
         if sha256(path) == EXPECTED_CONSTRAINT_SHA256:
@@ -249,6 +283,7 @@ def main() -> int:
     serial_ports, serial_err = powershell_json(
         "Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match 'COM[0-9]+' } | Select-Object Name,DeviceID,Status"
     )
+    latest_uart = uart_boot_probe_snapshot()
     ethernet = classify_ethernet(adapters)
     ethernet_up = [a for a in ethernet if str(a.get("Status", "")).lower() == "up"]
     ethernet_names = {str(a.get("Name", "")) for a in ethernet}
@@ -334,6 +369,24 @@ def main() -> int:
         "PASS" if serial_ports else "WARN",
         "; ".join(str(p.get("Name", "")) for p in serial_ports) or serial_err or "none",
         "UART is useful for IP/debug banners, but real TCP can use known static/DHCP IP.",
+    )
+    uart_board_ip = str(latest_uart.get("board_ip_seen", ""))
+    uart_log_bytes = int(latest_uart.get("log_bytes", 0))
+    add(
+        rows,
+        "latest_uart_boot_probe",
+        "INFO_BOARD_IP_HINT"
+        if uart_board_ip
+        else ("INFO_UART_TEXT_NO_IP" if uart_log_bytes > 0 else "INFO_NO_UART_TEXT"),
+        (
+            f"summary={latest_uart.get('summary') or 'none'} "
+            f"verdict={latest_uart.get('verdict') or 'MISSING'} "
+            f"log_bytes={uart_log_bytes} "
+            f"board_ip={uart_board_ip or 'none'} "
+            f"tcp_5001_seen={latest_uart.get('match_tcp_listen_5001') or '0'} "
+            f"dhcp_static_fallback_seen={latest_uart.get('match_dhcp_static_fallback') or '0'}"
+        ),
+        "Latest UART boot probe is a hint source only; real acceptance still requires TCP/DHCP evidence.",
     )
     add(
         rows,
@@ -487,6 +540,7 @@ def main() -> int:
         "ipv4_addresses": ipv4_addresses,
         "tcp_results": tcp_results,
         "local_tcp_discovery": local_tcp_discovery,
+        "latest_uart_boot_probe": latest_uart,
         "n03_expected_pc_ip": {
             "required": args.require_pc_ip,
             "expected_ip": args.expected_pc_ip,

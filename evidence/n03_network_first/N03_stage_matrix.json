@@ -51,7 +51,7 @@
     "item": "N03-6",
     "title": "DHCP timeout plus static fallback",
     "status": "SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260701_000400.summary.txt",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260701_124132.summary.txt",
     "next_required_evidence": "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
     "allowed_claim": "N03_DHCP_FALLBACK_PASS is real only if safe wrapper marker is 1 with UART/TCP/memory evidence"
   },
