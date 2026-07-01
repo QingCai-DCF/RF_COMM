@@ -141,6 +141,7 @@ def artifact_rows() -> list[dict[str, str]]:
         ROOT / "software" / "host_client" / "mock_rfcm_server.py",
         ROOT / "software" / "host_client" / "test_rf_comm_client.py",
         ROOT / "software" / "host_client" / "run_acceptance.ps1",
+        ROOT / "tools" / "build_no_ethernet_network_boundary_evidence.py",
         ROOT / "tools" / "probe_ps_uart_boot_safe.ps1",
         ROOT / "tools" / "setup_n03_static_direct_network_safe.ps1",
         ROOT / "tools" / "run_n03_network_first_acceptance_safe.ps1",
@@ -217,11 +218,17 @@ def main() -> int:
     p7_report = REPORTS / "P7_01_2lane_raw_matrix_report.md"
     protocol_contract = REPORTS / "protocol_contract_current.md"
     static_report = REPORTS / "ps_lwip_bridge_static_current.md"
+    static_report_text = read_text(static_report)
+    boundary_report = REPORTS / "no_ethernet_network_boundary_evidence_current.md"
+    boundary_csv = REPORTS / "no_ethernet_network_boundary_evidence_current.csv"
+    boundary_json = REPORTS / "no_ethernet_network_boundary_evidence_current.json"
+    boundary_text = read_text(boundary_report)
 
     command_ok = marker(offline_text, "N03_TCP_PROTOCOL_COMMAND_PASS=1")
     memory_ok = marker(offline_text, "N03_TCP_PAYLOAD_MEMORY_ECHO_PASS=1")
     synth_ok = marker(offline_text, "N03_TCP_TO_PSPL_SYNTHETIC_LOOPBACK_PASS=1")
     bad_arg_ok = marker(offline_text, "N03_BAD_ARG_NEGATIVE_PASS=1")
+    protocol_fault_ok = marker(offline_text, "N03_PROTOCOL_FAULT_NEGATIVE_OFFLINE_PASS=1")
     negative_ok = marker(offline_text, "N03_IR_PHYSICAL_DEFERRED_NEGATIVE_PASS=1")
     app_segmentation_ok = marker(offline_text, "N03_APP_PAYLOAD_SEGMENTATION_OFFLINE_PASS=1")
     reconnect_payload_ok = marker(offline_text, "N03_RECONNECT_PAYLOAD_ECHO_OFFLINE_PASS=1")
@@ -261,8 +268,19 @@ def main() -> int:
     uart_has_text = uart_log_bytes > 0
     uart_dhcp_fallback = marker(uart_text, "MATCH_DHCP_STATIC_FALLBACK=1")
     uart_tcp_listen = marker(uart_text, "MATCH_TCP_LISTEN_5001=1")
-    static_ok = marker(read_text(static_report), "PS_BRIDGE_STATIC_CHECKS_PASS") or marker(offline_text, "PS_BRIDGE_STATIC_CHECKS_PASS")
+    static_ok = marker(static_report_text, "PS_BRIDGE_STATIC_CHECKS_PASS") or marker(offline_text, "PS_BRIDGE_STATIC_CHECKS_PASS")
     protocol_ok = marker(read_text(protocol_contract), "RF_COMM_PROTOCOL_CONTRACT overall=PASS")
+    static_protocol_fault_ok = (
+        marker(static_report_text, "parser_reports_bad_magic")
+        and marker(static_report_text, "parser_reports_unsupported_version")
+        and marker(static_report_text, "oversize_payload_error")
+    )
+    boundary_protocol_ok = (
+        marker(boundary_text, "RF_COMM_NO_ETHERNET_NETWORK_BOUNDARY_EVIDENCE overall=PASS_OFFLINE_NETWORK_BOUNDARY")
+        and marker(boundary_text, "protocol_desync_reports_explicit_details")
+        and marker(boundary_text, "NEGATIVE_CASES=missing_ack_timeout;tx_error;oversize_rejected;protocol_desync")
+    )
+    protocol_fault_ok = protocol_fault_ok or (static_protocol_fault_ok and boundary_protocol_ok)
     single_tcp = external.get("tcp_results", {}).get("single", None)
     real_board_reachable = safe_static_ok or single_tcp is True
     if static_net_text and not pc_static_ip_ok:
@@ -299,6 +317,8 @@ def main() -> int:
     link_status = (
         "PASS_REAL_BOARD"
         if safe_link_ok and safe_negative_ok
+        else "PASS_OFFLINE_RECONNECT_PAYLOAD_PROTOCOL_NEGATIVE_REAL_LINK_PENDING"
+        if negative_ok and reconnect_payload_ok and protocol_fault_ok
         else "PASS_OFFLINE_RECONNECT_PAYLOAD_REAL_LINK_PENDING"
         if negative_ok and reconnect_payload_ok
         else "PASS_OFFLINE_REAL_LINK_PENDING"
@@ -396,9 +416,9 @@ def main() -> int:
             "N03-9",
             "link recovery and negative tests",
             link_status,
-            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}",
+            f"{rel(safe_summary)}; {rel(safe_matrix)}; {rel(offline_summary)}; {rel(boundary_report)}; {rel(static_report)}",
             "real reconnect/disconnect matrix and negative command matrix",
-            "offline reconnect payload echo and bad-arg negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1",
+            "offline reconnect payload echo, bad-arg negatives, and source/boundary protocol-fault negatives only; real link recovery only if safe wrapper reconnect and negative markers are 1",
         ),
         StageRow(
             "N03-10",
@@ -529,7 +549,7 @@ def main() -> int:
     )
     write(
         OUT / "N03_09_link_recovery_negative_tests.md",
-        report_template("N03-9 Link Recovery Negative Tests", rows[9].status, "Offline reconnect, post-reconnect payload echo, and negative command paths are covered. Real board reconnect and cable unplug/replug evidence remains pending.", rows),
+        report_template("N03-9 Link Recovery Negative Tests", rows[9].status, "Offline reconnect, post-reconnect payload echo, bad-argument command errors, and source/boundary protocol-fault diagnostics are covered. Real board reconnect and cable unplug/replug evidence remains pending.", rows),
     )
     write_csv(
         OUT / "N03_09_reconnect_matrix.csv",
@@ -547,8 +567,9 @@ def main() -> int:
             {"case": "CONFIG payload_bytes 0", "expected": "ERR_BAD_ARG", "current_status": "PASS_OFFLINE" if bad_arg_ok else "MISSING"},
             {"case": "CONFIG payload_bytes too_large", "expected": "ERR_BAD_ARG", "current_status": "PASS_OFFLINE" if bad_arg_ok else "MISSING"},
             {"case": "UNKNOWN_CMD", "expected": "ERR_UNKNOWN_CMD", "current_status": "PASS_OFFLINE"},
-            {"case": "malformed frame header", "expected": "ERROR/bad_magic or disconnect-safe behavior", "current_status": "SOURCE_TESTED_OFFLINE"},
-            {"case": "wrong length", "expected": "ERROR/payload_too_large or parser-safe behavior", "current_status": "SOURCE_TESTED_OFFLINE"},
+            {"case": "malformed frame header", "expected": "ERROR/bad_magic or disconnect-safe behavior", "current_status": "PASS_OFFLINE_SOURCE_BOUNDARY" if protocol_fault_ok else "SOURCE_TESTED_OFFLINE"},
+            {"case": "wrong length", "expected": "ERROR/payload_too_large or parser-safe behavior", "current_status": "PASS_OFFLINE_SOURCE_BOUNDARY" if protocol_fault_ok else "SOURCE_TESTED_OFFLINE"},
+            {"case": "wrong checksum", "expected": "N/A for TCP RFCM frame; IR CRC negative is deferred outside N03 network-first scope", "current_status": "DEFERRED_IR_FRAME_CRC_NOT_TCP_RFCM"},
         ],
     )
     package_body = [
@@ -570,6 +591,10 @@ def main() -> int:
         f"- Offline app payload segmentation: `{'PASS' if app_segmentation_ok else 'MISSING'}` (`8192_bytes_over_512_byte_rfcm_frames` when present)",
         f"- Offline reconnect payload echo: `{'PASS' if reconnect_payload_ok else 'MISSING'}`",
         f"- Offline bad-argument negatives: `{'PASS' if bad_arg_ok else 'MISSING'}`",
+        f"- Offline/source protocol-fault negatives: `{'PASS' if protocol_fault_ok else 'MISSING'}`",
+        f"- No-Ethernet boundary report: `{rel(boundary_report)}`",
+        f"- No-Ethernet boundary CSV: `{rel(boundary_csv)}`",
+        f"- No-Ethernet boundary JSON: `{rel(boundary_json)}`",
         f"- N03 static direct PC preflight summary: `{rel(static_net_summary)}`",
         f"- N03 static direct PC preflight report: `{rel(static_net_report)}`",
         f"- N03 static direct PC preflight JSON: `{rel(static_net_json)}`",
