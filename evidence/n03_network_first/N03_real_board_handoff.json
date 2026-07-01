@@ -21,6 +21,13 @@
     "pass_boundary": "Real N03-1..N03-5/N03-9 claims require non-dry-run safe wrapper markers and clean logs"
   },
   {
+    "step": "2a_candidate_target_acceptance",
+    "when": "Only if UART BOARD_IP_SEEN or local TCP discovery identifies a board IP different from 192.168.10.2",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\tools\\run_n03_network_first_acceptance_safe.ps1 -TargetHost <candidate-ip-from-uart-or-local-tcp> -Port 5001 -ComPort COM3 -ReconnectCycles 20 -MatrixRepeat 100 -SustainedSeconds 60 -LongSeconds 300",
+    "expected_evidence": "reports/external_preconditions_current.json plus safe-wrapper logs for the candidate target",
+    "pass_boundary": "Candidate IP evidence is only a routing hint until the safe wrapper records real TCP HELLO, payload, reconnect, and clean error counters"
+  },
+  {
     "step": "3_dhcp_fallback_capture",
     "when": "After board boots with DHCP client and no PC DHCP server",
     "command": "capture UART DHCP_START/DHCP_TIMEOUT/STATIC_FALLBACK_IP=192.168.10.2/TCP_READY, then rerun the safe wrapper",

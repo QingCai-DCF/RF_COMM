@@ -257,6 +257,9 @@ def main() -> int:
         else []
     )
     local_tcp_subnets_text = ", ".join(local_tcp_subnets) if local_tcp_subnets else "none"
+    external_uart = external.get("latest_uart_boot_probe", {})
+    if not isinstance(external_uart, dict):
+        external_uart = {}
     runbook_md = REPORTS / "real_acceptance_runbook_current.md"
     runbook_json = REPORTS / "real_acceptance_runbook_current.json"
     runbook_csv = REPORTS / "real_acceptance_runbook_current.csv"
@@ -352,8 +355,16 @@ def main() -> int:
     except ValueError:
         uart_log_bytes = 0
     uart_has_text = uart_log_bytes > 0
+    uart_board_ip_hint = marker_value(uart_text, "BOARD_IP_SEEN") or str(external_uart.get("board_ip_seen", ""))
     uart_dhcp_fallback = marker(uart_text, "MATCH_DHCP_STATIC_FALLBACK=1")
     uart_tcp_listen = marker(uart_text, "MATCH_TCP_LISTEN_5001=1")
+    target_hint_parts = ["static_expected=192.168.10.2"]
+    if uart_board_ip_hint:
+        target_hint_parts.append(f"uart_board_ip={uart_board_ip_hint}")
+    if local_tcp_candidates:
+        target_hint_parts.append(f"local_tcp_5001_candidates={local_tcp_candidates_text}")
+    target_hint_text = "; ".join(target_hint_parts)
+    candidate_target = uart_board_ip_hint or (local_tcp_candidates[0] if local_tcp_candidates else "")
     static_ok = marker(static_report_text, "PS_BRIDGE_STATIC_CHECKS_PASS") or marker(offline_text, "PS_BRIDGE_STATIC_CHECKS_PASS")
     protocol_ok = marker(read_text(protocol_contract), "RF_COMM_PROTOCOL_CONTRACT overall=PASS")
     static_protocol_fault_ok = (
@@ -453,6 +464,7 @@ def main() -> int:
         f"external={external_overall}",
         f"external_blockers={external_blockers_text}",
         f"local_tcp_5001_candidates={local_tcp_candidates_text}",
+        f"target_hints={target_hint_text}",
     ]
     safe_evidence = "; ".join(safe_evidence_parts)
 
@@ -470,7 +482,7 @@ def main() -> int:
             "static IP direct smoke",
             static_status,
             f"{safe_evidence}; {blocker_note}",
-            "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001",
+            "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001, or a justified UART/local-discovery board IP with matching safe-wrapper evidence",
             "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1",
         ),
         StageRow(
@@ -509,7 +521,7 @@ def main() -> int:
             "N03-6",
             "DHCP timeout plus static fallback",
             dhcp_fallback_status,
-            f"{rel(safe_summary)}; {rel(static_report)}; {rel(uart_summary)}",
+            f"{rel(safe_summary)}; {rel(static_report)}; {rel(uart_summary)}; target_hints={target_hint_text}",
             "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
             "N03_DHCP_FALLBACK_PASS is real only if safe wrapper marker is 1 with UART/TCP/memory evidence",
         ),
@@ -552,13 +564,13 @@ def main() -> int:
         report_template(
             "N03-1 Static IP Direct Smoke",
             rows[1].status,
-            f"Current board target: 192.168.10.2:5001. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Current shell admin={is_admin or 'unknown'}. Recommended static IP command: `{static_apply_command or 'not captured'}`. Elevated setup command: `{elevated_apply_command or 'not captured'}`. UAC launch command: `{elevated_uac_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
+            f"Current board target: 192.168.10.2:5001. Target hints: {target_hint_text}. Current preflight: {blocker_note}. N03 static direct PC preflight pass={int(static_net_pass)}. Current shell admin={is_admin or 'unknown'}. Recommended static IP command: `{static_apply_command or 'not captured'}`. Elevated setup command: `{elevated_apply_command or 'not captured'}`. UAC launch command: `{elevated_uac_command or 'not captured'}`. This file is a runbook/status record, not a real-board PASS transcript.",
             rows,
         ),
     )
     write(
         OUT / "N03_01_static_ip_direct_transcript.txt",
-        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nlatest_elevated_launch_summary={rel(static_launch_summary)}\nlatest_elevated_launch_pending_or_declined={int(launch_pending)}\nlatest_apply_refused_summary={rel(static_apply_refused_summary)}\nlatest_apply_refused_not_admin={int(apply_refused_not_admin)}\nlatest_firewall_refused_not_admin={int(firewall_refused_not_admin)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nelevated_uac_command={elevated_uac_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
+        f"generated={generated}\nstatus={rows[1].status}\ntarget=192.168.10.2:5001\ntarget_hints={target_hint_text}\nuart_board_ip_hint={uart_board_ip_hint or 'none'}\nlocal_tcp_5001_candidates={local_tcp_candidates_text}\ncurrent_preflight={blocker_note}\nstatic_direct_preflight_summary={rel(static_net_summary)}\nlatest_elevated_launch_summary={rel(static_launch_summary)}\nlatest_elevated_launch_pending_or_declined={int(launch_pending)}\nlatest_apply_refused_summary={rel(static_apply_refused_summary)}\nlatest_apply_refused_not_admin={int(apply_refused_not_admin)}\nlatest_firewall_refused_not_admin={int(firewall_refused_not_admin)}\nsafe_wrapper_summary={rel(safe_summary)}\npc_expected_static_ip_present={int(pc_static_ip_ok)}\nis_admin={is_admin}\nadmin_required_to_apply={admin_required}\nrecommended_apply_command={static_apply_command}\nrecommended_firewall_command={firewall_command}\nelevated_apply_command={elevated_apply_command}\nelevated_uac_command={elevated_uac_command}\nreal_tcp_connect_pass={int(safe_static_ok)}\n",
     )
     write(
         OUT / "N03_02_tcp_hello_report.md",
@@ -708,6 +720,13 @@ def main() -> int:
         "-TargetHost 192.168.10.2 -Port 5001 -ComPort COM3 "
         "-ReconnectCycles 20 -MatrixRepeat 100 -SustainedSeconds 60 -LongSeconds 300"
     )
+    candidate_acceptance_command = (
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        ".\\tools\\run_n03_network_first_acceptance_safe.ps1 "
+        f"-TargetHost {candidate_target or '<candidate-ip-from-uart-or-local-tcp>'} "
+        "-Port 5001 -ComPort COM3 -ReconnectCycles 20 -MatrixRepeat 100 "
+        "-SustainedSeconds 60 -LongSeconds 300"
+    )
     package_rebuild_command = "python .\\tools\\build_n03_network_first_package.py"
     handoff_rows = [
         {
@@ -730,6 +749,13 @@ def main() -> int:
             "command": real_acceptance_command,
             "expected_evidence": "reports/n03_network_first_acceptance_<stamp>.*/ and reports/n03_network_first_acceptance_safe_<stamp>.*",
             "pass_boundary": "Real N03-1..N03-5/N03-9 claims require non-dry-run safe wrapper markers and clean logs",
+        },
+        {
+            "step": "2a_candidate_target_acceptance",
+            "when": "Only if UART BOARD_IP_SEEN or local TCP discovery identifies a board IP different from 192.168.10.2",
+            "command": candidate_acceptance_command,
+            "expected_evidence": "reports/external_preconditions_current.json plus safe-wrapper logs for the candidate target",
+            "pass_boundary": "Candidate IP evidence is only a routing hint until the safe wrapper records real TCP HELLO, payload, reconnect, and clean error counters",
         },
         {
             "step": "3_dhcp_fallback_capture",
@@ -769,6 +795,8 @@ def main() -> int:
         f"- Current external blockers: `{external_blockers_text}`",
         f"- Local TCP 5001 discovery subnets: `{local_tcp_subnets_text}`",
         f"- Local TCP 5001 discovery candidates: `{local_tcp_candidates_text}`",
+        f"- UART board IP hint: `{uart_board_ip_hint or 'none'}`",
+        f"- Candidate target command: `{candidate_acceptance_command}`",
         f"- Current runbook: `{runbook_overall}`",
         f"- Current blocker: `{blocker_note}`",
         f"- Latest elevated static setup pending or declined: `{int(launch_pending)}`",
@@ -871,6 +899,9 @@ def main() -> int:
         f"- Latest elevated static setup launch pending or declined: `{int(launch_pending)}`",
         f"- Latest non-admin static setup apply refusal summary: `{rel(static_apply_refused_summary)}`",
         f"- Latest UART boot probe summary: `{rel(uart_summary)}`",
+        f"- Latest UART boot probe verdict: `{uart_verdict or 'MISSING'}`",
+        f"- Latest UART captured bytes: `{uart_log_bytes}`",
+        f"- UART board IP hint: `{uart_board_ip_hint or 'none'}`",
         f"- Safe real-board wrapper summary: `{rel(safe_summary)}`",
         f"- Safe real-board wrapper report: `{rel(safe_report)}`",
         f"- Safe real-board wrapper matrix: `{rel(safe_matrix)}`",
@@ -880,6 +911,7 @@ def main() -> int:
         f"- External preconditions blockers: `{external_blockers_text}`",
         f"- Local TCP 5001 discovery subnets: `{local_tcp_subnets_text}`",
         f"- Local TCP 5001 discovery candidates: `{local_tcp_candidates_text}`",
+        f"- N03 target hints: `{target_hint_text}`",
         f"- External preconditions report: `{rel(external_md)}`",
         f"- External preconditions JSON: `{rel(external_json)}`",
         f"- External preconditions CSV: `{rel(external_csv)}`",

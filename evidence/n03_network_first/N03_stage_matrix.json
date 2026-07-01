@@ -11,8 +11,8 @@
     "item": "N03-1",
     "title": "static IP direct smoke",
     "status": "BLOCKED_PC_STATIC_IP_NOT_CONFIGURED",
-    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; local_tcp_5001_candidates=none; PC Ethernet lacks 192.168.10.1/24 static direct IP",
-    "next_required_evidence": "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001",
+    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; local_tcp_5001_candidates=none; target_hints=static_expected=192.168.10.2; PC Ethernet lacks 192.168.10.1/24 static direct IP",
+    "next_required_evidence": "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001, or a justified UART/local-discovery board IP with matching safe-wrapper evidence",
     "allowed_claim": "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1"
   },
   {
@@ -51,7 +51,7 @@
     "item": "N03-6",
     "title": "DHCP timeout plus static fallback",
     "status": "SOURCE_READY_UART_INCONCLUSIVE_TCP_PENDING",
-    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260701_124132.summary.txt",
+    "evidence": "reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/ps_lwip_bridge_static_current.md; reports/ps_uart_boot_probe_20260701_124132.summary.txt; target_hints=static_expected=192.168.10.2",
     "next_required_evidence": "UART DHCP_TIMEOUT and STATIC_FALLBACK_IP=192.168.10.2 plus TCP reconnect evidence",
     "allowed_claim": "N03_DHCP_FALLBACK_PASS is real only if safe wrapper marker is 1 with UART/TCP/memory evidence"
   },
