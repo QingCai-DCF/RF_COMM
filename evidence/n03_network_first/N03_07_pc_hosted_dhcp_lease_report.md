@@ -1,6 +1,6 @@
 # N03-7 PC-hosted DHCP Lease
 
-Generated: 2026-07-01T12:17:01
+Generated: 2026-07-01T12:21:13
 
 Verdict: `DEFERRED_NO_PC_DHCP_SERVER_PREFLIGHTED`
 
