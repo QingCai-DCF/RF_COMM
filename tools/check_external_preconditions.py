@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import ipaddress
 import json
 import socket
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -111,6 +113,60 @@ def tcp_probe(host: str, port: int, timeout_s: float) -> bool:
         return False
 
 
+def discover_local_tcp_candidates(
+    ipv4_rows: list[dict[str, Any]],
+    port: int,
+    timeout_s: float,
+    max_hosts: int,
+) -> dict[str, Any]:
+    local_ips: set[str] = set()
+    networks: list[ipaddress.IPv4Network] = []
+    skipped: list[str] = []
+    for row in ipv4_rows:
+        ip = str(row.get("IPAddress", ""))
+        if not ip or ip.startswith(("127.", "169.254.")):
+            continue
+        try:
+            prefix = int(row.get("PrefixLength", 0))
+            network = ipaddress.ip_network(f"{ip}/{prefix}", strict=False)
+        except (TypeError, ValueError):
+            continue
+        if network.version != 4:
+            continue
+        host_count = max(0, network.num_addresses - 2) if network.num_addresses > 2 else network.num_addresses
+        if host_count > max_hosts:
+            skipped.append(f"{network}:hosts={host_count}")
+            continue
+        local_ips.add(ip)
+        networks.append(network)
+
+    candidates: set[str] = set()
+    for network in networks:
+        hosts = [str(host) for host in network.hosts() if str(host) not in local_ips]
+        if not hosts:
+            continue
+        worker_count = min(96, len(hosts))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {executor.submit(tcp_probe, host, port, timeout_s): host for host in hosts}
+            for future in as_completed(futures):
+                host = futures[future]
+                try:
+                    if future.result():
+                        candidates.add(host)
+                except Exception:
+                    continue
+
+    return {
+        "enabled": True,
+        "subnets": [str(network) for network in networks],
+        "skipped_subnets": skipped,
+        "candidates": sorted(candidates, key=lambda value: ipaddress.ip_address(value)),
+        "port": port,
+        "timeout": timeout_s,
+        "max_hosts": max_hosts,
+    }
+
+
 def classify_ethernet(adapters: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for adapter in adapters:
@@ -156,6 +212,9 @@ def main() -> int:
     parser.add_argument("--require-pc-ip", action="store_true", help="Require the selected PC Ethernet subnet IP.")
     parser.add_argument("--expected-pc-ip", default="192.168.10.1", help="Expected PC-side static IPv4 address.")
     parser.add_argument("--expected-pc-prefix", type=int, default=24, help="Expected PC-side IPv4 prefix length.")
+    parser.add_argument("--discover-local-tcp", action="store_true", help="Scan small local Ethernet subnets for TCP candidates.")
+    parser.add_argument("--discover-timeout", type=float, default=0.2, help="Per-host discovery TCP timeout seconds.")
+    parser.add_argument("--discover-max-hosts", type=int, default=512, help="Maximum hosts per subnet for discovery.")
     args = parser.parse_args()
 
     REPORTS.mkdir(parents=True, exist_ok=True)
@@ -203,6 +262,22 @@ def main() -> int:
         and int(row.get("PrefixLength", -1)) == args.expected_pc_prefix
         for row in ethernet_ipv4
     )
+    local_tcp_discovery: dict[str, Any] = {
+        "enabled": False,
+        "subnets": [],
+        "skipped_subnets": [],
+        "candidates": [],
+        "port": args.tcp_port,
+        "timeout": args.discover_timeout,
+        "max_hosts": args.discover_max_hosts,
+    }
+    if args.discover_local_tcp:
+        local_tcp_discovery = discover_local_tcp_candidates(
+            ethernet_ipv4,
+            args.tcp_port,
+            args.discover_timeout,
+            args.discover_max_hosts,
+        )
 
     xpr_text = read_text(xpr)
     wrapper_text = read_text(wrapper)
@@ -331,6 +406,21 @@ def main() -> int:
         f"{args.target_host_a}:{args.tcp_port}={tcp_results['a']}; {args.target_host_b}:{args.tcp_port}={tcp_results['b']}",
         "Real N04/A01/S05 acceptance needs both AX7010 endpoints reachable.",
     )
+    discovery_candidates = [str(item) for item in local_tcp_discovery.get("candidates", [])]
+    add(
+        rows,
+        "n03_local_tcp_discovery",
+        "PASS_CANDIDATE_FOUND"
+        if discovery_candidates
+        else ("INFO_NO_CANDIDATE" if args.discover_local_tcp else "SKIPPED"),
+        (
+            f"port={args.tcp_port} "
+            f"subnets={','.join(str(item) for item in local_tcp_discovery.get('subnets', [])) or 'none'} "
+            f"candidates={','.join(discovery_candidates) if discovery_candidates else 'none'} "
+            f"skipped={','.join(str(item) for item in local_tcp_discovery.get('skipped_subnets', [])) or 'none'}"
+        ),
+        "Read-only TCP connect discovery over small local Ethernet subnets; candidates are hints only, not PASS evidence.",
+    )
 
     blockers = [row.item for row in rows if row.status == "BLOCKED"]
     fails = [row.item for row in rows if row.status == "FAIL"]
@@ -396,6 +486,7 @@ def main() -> int:
         "serial_ports": serial_ports,
         "ipv4_addresses": ipv4_addresses,
         "tcp_results": tcp_results,
+        "local_tcp_discovery": local_tcp_discovery,
         "n03_expected_pc_ip": {
             "required": args.require_pc_ip,
             "expected_ip": args.expected_pc_ip,

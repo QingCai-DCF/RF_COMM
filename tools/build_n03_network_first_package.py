@@ -240,6 +240,23 @@ def main() -> int:
         else []
     )
     external_blockers_text = ", ".join(external_blockers) if external_blockers else "none"
+    local_tcp_discovery = external.get("local_tcp_discovery", {})
+    if not isinstance(local_tcp_discovery, dict):
+        local_tcp_discovery = {}
+    local_tcp_candidates_raw = local_tcp_discovery.get("candidates", [])
+    local_tcp_candidates = (
+        [str(item) for item in local_tcp_candidates_raw]
+        if isinstance(local_tcp_candidates_raw, list)
+        else []
+    )
+    local_tcp_candidates_text = ", ".join(local_tcp_candidates) if local_tcp_candidates else "none"
+    local_tcp_subnets_raw = local_tcp_discovery.get("subnets", [])
+    local_tcp_subnets = (
+        [str(item) for item in local_tcp_subnets_raw]
+        if isinstance(local_tcp_subnets_raw, list)
+        else []
+    )
+    local_tcp_subnets_text = ", ".join(local_tcp_subnets) if local_tcp_subnets else "none"
     runbook_md = REPORTS / "real_acceptance_runbook_current.md"
     runbook_json = REPORTS / "real_acceptance_runbook_current.json"
     runbook_csv = REPORTS / "real_acceptance_runbook_current.csv"
@@ -435,6 +452,7 @@ def main() -> int:
         rel(external_csv),
         f"external={external_overall}",
         f"external_blockers={external_blockers_text}",
+        f"local_tcp_5001_candidates={local_tcp_candidates_text}",
     ]
     safe_evidence = "; ".join(safe_evidence_parts)
 
@@ -749,6 +767,8 @@ def main() -> int:
         "",
         f"- Current external preconditions: `{external_overall}`",
         f"- Current external blockers: `{external_blockers_text}`",
+        f"- Local TCP 5001 discovery subnets: `{local_tcp_subnets_text}`",
+        f"- Local TCP 5001 discovery candidates: `{local_tcp_candidates_text}`",
         f"- Current runbook: `{runbook_overall}`",
         f"- Current blocker: `{blocker_note}`",
         f"- Latest elevated static setup pending or declined: `{int(launch_pending)}`",
@@ -858,6 +878,8 @@ def main() -> int:
         f"- Protocol contract report: `{rel(protocol_contract)}`",
         f"- External preconditions overall: `{external_overall}`",
         f"- External preconditions blockers: `{external_blockers_text}`",
+        f"- Local TCP 5001 discovery subnets: `{local_tcp_subnets_text}`",
+        f"- Local TCP 5001 discovery candidates: `{local_tcp_candidates_text}`",
         f"- External preconditions report: `{rel(external_md)}`",
         f"- External preconditions JSON: `{rel(external_json)}`",
         f"- External preconditions CSV: `{rel(external_csv)}`",

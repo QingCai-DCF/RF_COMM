@@ -182,6 +182,11 @@ $externalExit = Invoke-Step -Name "n03_external_preconditions" -FilePath "python
     "192.168.10.1",
     "--expected-pc-prefix",
     "24",
+    "--discover-local-tcp",
+    "--discover-timeout",
+    "0.2",
+    "--discover-max-hosts",
+    "512",
     "--timeout",
     [string]([Math]::Max(0.5, [Math]::Min(5.0, [double]$TimeoutSeconds)))
 ) -LogPath $externalLog -TimeoutSecondsForStep 45 -AllowedExitCodes @(0)

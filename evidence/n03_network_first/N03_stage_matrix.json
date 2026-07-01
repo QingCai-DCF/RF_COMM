@@ -11,7 +11,7 @@
     "item": "N03-1",
     "title": "static IP direct smoke",
     "status": "BLOCKED_PC_STATIC_IP_NOT_CONFIGURED",
-    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; PC Ethernet lacks 192.168.10.1/24 static direct IP",
+    "evidence": "reports/n03_static_direct_network_preflight_current.summary.txt; reports/n03_network_first_acceptance_safe_20260701_121630.summary.txt; reports/external_preconditions_current.md; reports/external_preconditions_current.json; reports/external_preconditions_current.csv; external=BLOCKED_EXTERNAL_PRECONDITIONS; external_blockers=n03_static_pc_ip, tcp_quick_probe_single_board, tcp_quick_probe_two_ax7010; local_tcp_5001_candidates=none; PC Ethernet lacks 192.168.10.1/24 static direct IP",
     "next_required_evidence": "board UART/TCP transcript proving ETH link up and TCP connect to 192.168.10.2:5001",
     "allowed_claim": "real static TCP only if safe wrapper N03_STATIC_DIRECT_TCP_PASS=1"
   },
