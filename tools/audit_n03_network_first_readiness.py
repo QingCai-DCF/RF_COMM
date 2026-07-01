@@ -37,6 +37,16 @@ def read_text(path: Path | None) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+def read_json(path: Path | None) -> dict:
+    if path is None or not path.exists():
+        return {}
+    try:
+        payload = json.loads(read_text(path))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def latest(pattern: str) -> Path | None:
     matches = list(REPORTS.glob(pattern))
     if not matches:
@@ -162,6 +172,14 @@ def collect_items() -> list[ReadinessItem]:
     reconnect_text = read_text(reconnect_summary)
     uart_summary = latest("ps_uart_boot_probe_*.summary.txt")
     uart_text = read_text(uart_summary)
+    external_md = current("external_preconditions_current.md")
+    external_json = current("external_preconditions_current.json")
+    external_csv = current("external_preconditions_current.csv")
+    external = read_json(external_json)
+    external_overall = str(external.get("overall") or "MISSING")
+    external_blockers_raw = external.get("blockers", [])
+    external_blockers = [str(item) for item in external_blockers_raw] if isinstance(external_blockers_raw, list) else []
+    external_evidence = f"{rel(external_md)}; {rel(external_json)}; {rel(external_csv)}"
 
     safe_dry_run = marker(safe_text, "N03_DRY_RUN=1")
     static_real = marker(safe_text, "N03_STATIC_DIRECT_TCP_PASS=1") and not safe_dry_run
@@ -176,6 +194,7 @@ def collect_items() -> list[ReadinessItem]:
         for line in static_text.splitlines()
         if line.startswith("N03_STATIC_DIRECT_NETWORK_BLOCKER=")
     ]
+    combined_static_blockers = list(dict.fromkeys(static_blockers + [f"external:{item}" for item in external_blockers]))
     static_next = marker_value(static_text, "N03_STATIC_DIRECT_NETWORK_NEXT_ACTION")
     safe_blocker = marker_value(safe_text, "N03_BLOCKED_REASON")
     pc_dhcp_status = marker_value(pc_dhcp_text, "N03_PC_HOSTED_DHCP_PREFLIGHT_STATUS")
@@ -203,11 +222,23 @@ def collect_items() -> list[ReadinessItem]:
     )
     items.append(
         ReadinessItem(
+            "N03-ext",
+            "Current external Ethernet/TCP preconditions are recorded before real N03 acceptance.",
+            external_overall if external_overall != "MISSING" else "MISSING_EXTERNAL_PRECONDITIONS",
+            external_evidence,
+            ";".join(external_blockers),
+            "connect board Ethernet, confirm link up, then rerun current state gate"
+            if external_blockers
+            else "none",
+        )
+    )
+    items.append(
+        ReadinessItem(
             "N03-1",
             "Static direct PC-to-board Ethernet TCP smoke passes on real board.",
             "PASS_REAL_BOARD" if static_real else "BLOCKED_REAL_BOARD",
-            f"{rel(static_summary)}; {rel(safe_summary)}",
-            ";".join(static_blockers) or safe_blocker or "real_static_tcp_missing",
+            f"{rel(static_summary)}; {rel(safe_summary)}; {external_evidence}",
+            ";".join(combined_static_blockers) or safe_blocker or "real_static_tcp_missing",
             static_next or "connect board Ethernet, configure 192.168.10.1/24, rerun safe acceptance",
         )
     )
@@ -292,7 +323,8 @@ def collect_items() -> list[ReadinessItem]:
         )
     )
 
-    required_real = [items[i] for i in (1, 2, 3, 4, 5, 6, 8, 9)]
+    required_real_ids = {"N03-1", "N03-2", "N03-3", "N03-4", "N03-5", "N03-6", "N03-8", "N03-9"}
+    required_real = [item for item in items if item.item in required_real_ids]
     final_ready = all(item.status == "PASS_REAL_BOARD" for item in required_real)
     items.append(
         ReadinessItem(
@@ -310,6 +342,13 @@ def collect_items() -> list[ReadinessItem]:
 def render_markdown(items: list[ReadinessItem], forbidden_hits: list[str]) -> str:
     blockers = [item for item in items if item.blocker]
     final_ready = items[-1].status == "READY_TO_CLAIM_FINAL" and not forbidden_hits
+    external_item = next((item for item in items if item.item == "N03-ext"), None)
+    external_status = external_item.status if external_item is not None else "MISSING"
+    external_blocker_count = (
+        len([part for part in external_item.blocker.split(";") if part])
+        if external_item is not None
+        else 0
+    )
     return "\n".join(
         [
             "# N03 Network-first Readiness Audit",
@@ -325,6 +364,8 @@ def render_markdown(items: list[ReadinessItem], forbidden_hits: list[str]) -> st
             "```text",
             f"N03_NETWORK_FIRST_READINESS_PASS={1 if final_ready else 0}",
             f"N03_NETWORK_FIRST_REAL_BOARD_BLOCKER_COUNT={len(blockers)}",
+            f"N03_EXTERNAL_PRECONDITIONS_STATUS={external_status}",
+            f"N03_EXTERNAL_PRECONDITION_BLOCKER_COUNT={external_blocker_count}",
             f"N03_FORBIDDEN_PASS_CLAIM_COUNT={len(forbidden_hits)}",
             "NO_HARDWARE_PROGRAMMING=1",
             "NO_UART_WRITE=1",
@@ -360,9 +401,17 @@ def main() -> int:
 
     items = collect_items()
     forbidden_hits = scan_forbidden_claims()
+    external_item = next((item for item in items if item.item == "N03-ext"), None)
+    external_blocker_count = (
+        len([part for part in external_item.blocker.split(";") if part])
+        if external_item is not None
+        else 0
+    )
     payload = {
         "generated": datetime.now().isoformat(timespec="seconds"),
         "readiness_pass": items[-1].status == "READY_TO_CLAIM_FINAL" and not forbidden_hits,
+        "external_preconditions_status": external_item.status if external_item is not None else "MISSING",
+        "external_precondition_blocker_count": external_blocker_count,
         "forbidden_pass_claims": forbidden_hits,
         "items": [asdict(item) for item in items],
     }
@@ -380,6 +429,8 @@ def main() -> int:
     print(f"WROTE_N03_READINESS_JSON={rel(json_path)}")
     print(f"N03_NETWORK_FIRST_READINESS_PASS={pass_ready}")
     print(f"N03_NETWORK_FIRST_REAL_BOARD_BLOCKER_COUNT={blocker_count}")
+    print(f"N03_EXTERNAL_PRECONDITIONS_STATUS={payload['external_preconditions_status']}")
+    print(f"N03_EXTERNAL_PRECONDITION_BLOCKER_COUNT={external_blocker_count}")
     print(f"N03_FORBIDDEN_PASS_CLAIM_COUNT={len(forbidden_hits)}")
     print("NO_HARDWARE_PROGRAMMING=1")
     print("NO_UART_WRITE=1")
