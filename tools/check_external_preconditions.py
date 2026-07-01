@@ -153,6 +153,9 @@ def main() -> int:
     parser.add_argument("--tcp-port", type=int, default=5001, help="RFCM TCP port.")
     parser.add_argument("--timeout", type=float, default=0.5, help="TCP probe timeout seconds.")
     parser.add_argument("--skip-tcp-probe", action="store_true", help="Do not attempt quick TCP connect probes.")
+    parser.add_argument("--require-pc-ip", action="store_true", help="Require the selected PC Ethernet subnet IP.")
+    parser.add_argument("--expected-pc-ip", default="192.168.10.1", help="Expected PC-side static IPv4 address.")
+    parser.add_argument("--expected-pc-prefix", type=int, default=24, help="Expected PC-side IPv4 prefix length.")
     args = parser.parse_args()
 
     REPORTS.mkdir(parents=True, exist_ok=True)
@@ -179,13 +182,27 @@ def main() -> int:
     real_acceptance_template = REPORTS / "real_acceptance_template" / "real_acceptance_template_manifest.csv"
 
     adapters, adapter_err = powershell_json(
-        "Get-NetAdapter -Physical | Select-Object Name,InterfaceDescription,Status,LinkSpeed,MacAddress"
+        "Get-NetAdapter -Physical | Select-Object Name,InterfaceDescription,Status,LinkSpeed,MacAddress,ifIndex"
+    )
+    ipv4_addresses, ipv4_err = powershell_json(
+        "Get-NetIPAddress -AddressFamily IPv4 | Select-Object InterfaceAlias,InterfaceIndex,IPAddress,PrefixLength,AddressState,PrefixOrigin"
     )
     serial_ports, serial_err = powershell_json(
         "Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match 'COM[0-9]+' } | Select-Object Name,DeviceID,Status"
     )
     ethernet = classify_ethernet(adapters)
     ethernet_up = [a for a in ethernet if str(a.get("Status", "")).lower() == "up"]
+    ethernet_names = {str(a.get("Name", "")) for a in ethernet}
+    ethernet_ipv4 = [
+        row
+        for row in ipv4_addresses
+        if str(row.get("InterfaceAlias", "")) in ethernet_names
+    ]
+    expected_pc_ip_present = any(
+        str(row.get("IPAddress", "")) == args.expected_pc_ip
+        and int(row.get("PrefixLength", -1)) == args.expected_pc_prefix
+        for row in ethernet_ipv4
+    )
 
     xpr_text = read_text(xpr)
     wrapper_text = read_text(wrapper)
@@ -216,6 +233,25 @@ def main() -> int:
         "PASS" if ethernet_up else "BLOCKED",
         "; ".join(f"{a.get('Name')}:{a.get('Status')}:{a.get('LinkSpeed')}" for a in ethernet) or "no ethernet adapters classified",
         "At least one physical Ethernet link must be Up before real TCP/DHCP acceptance.",
+    )
+    add(
+        rows,
+        "n03_static_pc_ip",
+        ("PASS" if expected_pc_ip_present else "BLOCKED") if args.require_pc_ip else "SKIPPED",
+        (
+            f"expected={args.expected_pc_ip}/{args.expected_pc_prefix} "
+            f"present={expected_pc_ip_present} "
+            f"ethernet_ipv4="
+            + (
+                "; ".join(
+                    f"{row.get('InterfaceAlias')}:{row.get('IPAddress')}/{row.get('PrefixLength')}"
+                    for row in ethernet_ipv4
+                )
+                or "none"
+            )
+        ),
+        ipv4_err
+        or "N03 static direct acceptance requires the PC Ethernet adapter to own the expected static IPv4 address.",
     )
     add(
         rows,
@@ -358,7 +394,14 @@ def main() -> int:
         "adapters": adapters,
         "ethernet": ethernet,
         "serial_ports": serial_ports,
+        "ipv4_addresses": ipv4_addresses,
         "tcp_results": tcp_results,
+        "n03_expected_pc_ip": {
+            "required": args.require_pc_ip,
+            "expected_ip": args.expected_pc_ip,
+            "expected_prefix": args.expected_pc_prefix,
+            "present_on_ethernet": expected_pc_ip_present,
+        },
         "artifacts": {
             "constraint": rel(constraint),
             "shutdown_bitstream": rel(shutdown_bitstream),

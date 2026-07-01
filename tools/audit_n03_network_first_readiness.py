@@ -154,6 +154,18 @@ def scan_forbidden_claims() -> list[str]:
     return sorted(set(hits))
 
 
+def external_next_action(blockers: list[str]) -> str:
+    if not blockers:
+        return "none"
+    if "ethernet_link" in blockers:
+        return "connect board Ethernet, confirm link up, then rerun current state gate"
+    if "n03_static_pc_ip" in blockers:
+        return "configure PC Ethernet static IP 192.168.10.1/24, then rerun current state gate"
+    if "tcp_quick_probe_single_board" in blockers:
+        return "confirm board PS TCP service is running on 192.168.10.2:5001, then rerun current state gate"
+    return "clear external precondition blockers, then rerun current state gate"
+
+
 def collect_items() -> list[ReadinessItem]:
     stage_rows = read_stage_rows()
     stage = {row.get("item", ""): row for row in stage_rows}
@@ -223,9 +235,7 @@ def collect_items() -> list[ReadinessItem]:
             external_overall if external_overall != "MISSING" else "MISSING_EXTERNAL_PRECONDITIONS",
             external_evidence,
             ";".join(external_blockers),
-            "connect board Ethernet, confirm link up, then rerun current state gate"
-            if external_blockers
-            else "none",
+            external_next_action(external_blockers),
         )
     )
     items.append(

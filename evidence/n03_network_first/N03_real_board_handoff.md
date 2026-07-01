@@ -1,6 +1,6 @@
 # N03 Real Board Handoff
 
-Generated: 2026-07-01T12:21:13
+Generated: 2026-07-01T12:26:46
 
 This handoff is the ordered entry point for continuing the N03 network-first plan once the board Ethernet link is available. It does not configure networking, run hardware, or claim a real-board pass by itself.
 
